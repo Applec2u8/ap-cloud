@@ -1,55 +1,53 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Home } from 'lucide-react';
 
 const NotFoundPage: React.FC = () => {
   return (
-    <div className="page-wrapper">
-      <nav className="navbar">
-        <div className="navbar__inner">
-          <Link to="/" className="navbar__brand">
-            <div className="navbar__brand-icon">☁️</div>
+    <div className="flex min-h-screen flex-col">
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 border-b border-white/20 bg-white/5 backdrop-blur-lg dark:border-white/10 dark:bg-black/20 shadow-sm">
+        <div className="mx-auto flex h-16 max-w-5xl items-center px-6">
+          <Link to="/" className="flex items-center gap-2.5 font-bold text-foreground no-underline">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 text-sm">
+              ☁️
+            </div>
             AP-Cloud
           </Link>
         </div>
       </nav>
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 40,
-        }}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <div
-            style={{
-              fontSize: '6rem',
-              marginBottom: 16,
-              background: 'var(--gradient-primary)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              fontWeight: 800,
-            }}
-          >
+
+      {/* Content */}
+      <div className="flex flex-1 items-center justify-center p-10">
+        <div className="text-center">
+          <div className="mb-4 bg-gradient-to-br from-blue-600 to-blue-800 bg-clip-text text-8xl font-extrabold text-transparent">
             404
           </div>
-          <h1 className="heading-lg" style={{ marginBottom: 10 }}>Page Not Found</h1>
-          <p style={{ color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto 28px' }}>
+          <h1 className="mb-3 text-2xl font-bold text-foreground">Page Not Found</h1>
+          <p className="mx-auto mb-8 max-w-sm text-muted-foreground">
             The page you're looking for doesn't exist or the link may have expired.
           </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link to="/" className="btn btn--primary">
-              ← Back Home
-            </Link>
-            <Link to="/admin" className="btn btn--secondary">
-              Admin Panel
-            </Link>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button asChild>
+              <Link to="/">
+                <Home className="h-4 w-4" />
+                Back Home
+              </Link>
+            </Button>
+            {/* <Button asChild variant="secondary">
+              <Link to="/admin">
+                <ShieldCheck className="h-4 w-4" />
+                Admin Panel
+              </Link>
+            </Button> */}
           </div>
         </div>
       </div>
-      <footer className="footer">AP-Cloud · Powered by Supabase</footer>
+
+      <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
+        AP-Cloud · Powered by Supabase
+      </footer>
     </div>
   );
 };

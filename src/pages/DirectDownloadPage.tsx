@@ -5,6 +5,10 @@ import { supabase } from '../supabaseClient';
 /**
  * DirectDownloadPage — /dl/:version
  *
+ * Special keywords:
+ *   /dl/latest  → downloads the release where is_latest = true
+ *   /dl/1.2.3   → downloads the specific version
+ *
  * Fetches the public_url from the releases table and immediately redirects
  * the browser to it, triggering a native file download.
  * This URL is safe to use in version.json for auto-updaters.
@@ -16,12 +20,19 @@ const DirectDownloadPage: React.FC = () => {
   useEffect(() => {
     if (!version) return;
     (async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('releases')
-        .select('public_url')
-        .eq('version', version)
-        .eq('is_public', true)
-        .single();
+        .select('public_url, version')
+        .eq('is_public', true);
+
+      // Support the special "latest" keyword
+      if (version === 'latest') {
+        query = query.eq('is_latest', true);
+      } else {
+        query = query.eq('version', version);
+      }
+
+      const { data, error } = await query.single();
 
       if (error || !data?.public_url) {
         navigate('/404', { replace: true });
@@ -34,11 +45,25 @@ const DirectDownloadPage: React.FC = () => {
   }, [version, navigate]);
 
   return (
-    <div className="loading-screen">
-      <div className="spinner" style={{ width: 48, height: 48 }} />
-      <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Starting download...</h2>
-      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-        Resolving v{version} — you will be redirected momentarily.
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '1rem',
+        minHeight: '100vh',
+        background: 'hsl(var(--background, 222 84% 2%))',
+        color: 'hsl(var(--foreground, 210 40% 98%))',
+        fontFamily: 'Inter, system-ui, sans-serif',
+      }}
+    >
+      <span className="spinner" style={{ width: 48, height: 48 }} />
+      <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Starting download…</h2>
+      <p style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.9rem' }}>
+        {version === 'latest'
+          ? 'Resolving latest release — you will be redirected momentarily.'
+          : `Resolving v${version} — you will be redirected momentarily.`}
       </p>
     </div>
   );

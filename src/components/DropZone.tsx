@@ -1,9 +1,17 @@
 import React, { useRef, useState, useCallback } from 'react';
+import { cn } from '@/lib/utils';
+import { UploadCloud } from 'lucide-react';
 
 interface DropZoneProps {
   onFileSelected: (file: File) => void;
   disabled?: boolean;
 }
+
+const formatSize = (bytes: number) => {
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
+  if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + ' MB';
+  return (bytes / 1024).toFixed(1) + ' KB';
+};
 
 const DropZone: React.FC<DropZoneProps> = ({ onFileSelected, disabled = false }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -43,20 +51,18 @@ const DropZone: React.FC<DropZoneProps> = ({ onFileSelected, disabled = false })
     e.target.value = '';
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
-    if (bytes >= 1048576) return (bytes / 1048576).toFixed(2) + ' MB';
-    return (bytes / 1024).toFixed(1) + ' KB';
-  };
-
   return (
     <div
-      className={`dropzone ${isDragging ? 'dropzone--active' : ''} ${disabled ? '' : ''}`}
+      className={cn(
+        'relative overflow-hidden rounded-2xl border-2 border-dashed border-border bg-card p-8 text-center transition-all duration-200',
+        isDragging && 'border-blue-500 bg-blue-500/5 scale-[1.01] shadow-[0_0_0_4px_rgba(37,99,235,0.1)]',
+        !disabled && !isDragging && 'hover:border-blue-400 hover:bg-blue-500/[0.03] cursor-pointer',
+        disabled && 'opacity-60 cursor-not-allowed'
+      )}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       onClick={onClick}
-      style={{ cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1 }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onClick()}
@@ -66,39 +72,44 @@ const DropZone: React.FC<DropZoneProps> = ({ onFileSelected, disabled = false })
       <input
         ref={inputRef}
         type="file"
-        className="dropzone__input"
+        className="hidden"
         onChange={onInputChange}
         disabled={disabled}
         id="file-input"
       />
 
       {selectedFile ? (
-        <>
-          <span className="dropzone__icon">📦</span>
-          <div className="dropzone__title">File selected</div>
-          <div className="dropzone__file-info">
+        <div className="flex flex-col items-center gap-3">
+          <div className="text-4xl drop-shadow-[0_0_16px_rgba(37,99,235,0.5)]">📦</div>
+          <div className="font-semibold text-foreground">File selected</div>
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-600 dark:text-emerald-400">
             <span>📄</span>
-            <strong>{selectedFile.name}</strong>
-            <span style={{ color: 'var(--text-muted)' }}>({formatSize(selectedFile.size)})</span>
+            <strong className="max-w-[240px] truncate">{selectedFile.name}</strong>
+            <span className="text-muted-foreground">({formatSize(selectedFile.size)})</span>
           </div>
           {!disabled && (
-            <div className="dropzone__subtitle" style={{ marginTop: 12 }}>
-              Click or drop another file to replace
-            </div>
+            <p className="text-xs text-muted-foreground">Click or drop another file to replace</p>
           )}
-        </>
+        </div>
       ) : (
-        <>
-          <span className="dropzone__icon">☁️</span>
-          <div className="dropzone__title">Drop your file here</div>
-          <div className="dropzone__subtitle">
-            Drag & drop or <span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>click to browse</span>
-            <br />
-            <span style={{ fontSize: '0.8rem', marginTop: 4, display: 'block' }}>
+        <div className="flex flex-col items-center gap-3">
+          <UploadCloud
+            className={cn(
+              'h-10 w-10 transition-colors duration-200',
+              isDragging ? 'text-blue-500' : 'text-muted-foreground'
+            )}
+          />
+          <div>
+            <p className="font-semibold text-foreground">Drop your file here</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Drag &amp; drop or{' '}
+              <span className="font-semibold text-blue-600 dark:text-blue-400">click to browse</span>
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
               Supports .exe, .msi, .zip, .pkg and all other file types
-            </span>
+            </p>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
