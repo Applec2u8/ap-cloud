@@ -133,7 +133,7 @@ const DownloadPage: React.FC = () => {
         </div>
       </nav>
 
-      <main className="flex-1">
+      <main className="flex-1 p-2 md:p-4 lg:p-6">
         {/* ── Hero ── */}
         <div className="relative overflow-hidden py-16 text-center">
           {/* Radial glow */}
@@ -147,7 +147,7 @@ const DownloadPage: React.FC = () => {
           <h1 className="mb-3 text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
             {release.app_name}
           </h1>
-          <p className="mx-auto mb-5 max-w-md text-base text-muted-foreground">
+          <p className="mx-auto mb-5 p-3 md:p-0 max-w-md text-base text-muted-foreground">
             The latest official release, securely hosted and ready to download.
           </p>
           <div className="flex items-center justify-center gap-2.5 flex-wrap">
