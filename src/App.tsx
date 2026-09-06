@@ -10,6 +10,8 @@ import RepositoryPage from './pages/RepositoryPage';
 import TreePage from './pages/TreePage';
 import BlobPage from './pages/BlobPage';
 import SettingsPage from './pages/SettingsPage';
+import ReleasesPage from './pages/ReleasesPage';
+import LinksPage from './pages/LinksPage';
 import { RepoProvider } from './context/RepoContext';
 
 const App: React.FC = () => {
@@ -42,6 +44,12 @@ const App: React.FC = () => {
 
                 {/* Settings: /repo/:owner/:repoName/settings */}
                 <Route path="settings" element={<SettingsPage />} />
+
+                {/* Releases: /repo/:owner/:repoName/releases */}
+                <Route path="releases" element={<ReleasesPage />} />
+
+                {/* Links (aliases): /repo/:owner/:repoName/links */}
+                <Route path="links" element={<LinksPage />} />
               </Routes>
             </RepoProvider>
           }

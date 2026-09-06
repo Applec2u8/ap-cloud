@@ -38,7 +38,7 @@ const ThemeSwitcher: React.FC = () => {
     <div
       role="group"
       aria-label="Choose theme"
-      className="flex items-center gap-1 rounded-2xl border border-border/50 bg-background/60 p-1.5 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-black/20"
+      className="flex items-center gap-0.5 sm:gap-1 rounded-2xl border border-border/50 bg-background/60 p-1 sm:p-1.5 shadow-lg backdrop-blur-md dark:border-white/10 dark:bg-black/20 shrink-0"
     >
       {THEMES.map((t) => (
         <button
@@ -47,7 +47,7 @@ const ThemeSwitcher: React.FC = () => {
           onClick={() => setTheme(t.value)}
           aria-pressed={theme === t.value}
           className={cn(
-            'flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-300 cursor-pointer',
+            'flex items-center gap-1 sm:gap-1.5 rounded-xl px-2 py-1 sm:px-3 sm:py-1.5 text-xs font-semibold whitespace-nowrap transition-all duration-300 cursor-pointer',
             theme === t.value
               ? 'bg-muted text-foreground shadow-sm border border-border/50 dark:bg-white/10 dark:shadow-[inset_0_0_15px_rgba(255,255,255,0.1)] dark:border-white/30'
               : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground hover:scale-105 border border-transparent dark:hover:bg-white/15'

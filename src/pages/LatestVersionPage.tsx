@@ -28,12 +28,26 @@ const LatestVersionPage: React.FC = () => {
 
   useEffect(() => {
     (async () => {
-      const { data: release, error } = await supabase
+      // Scope by repository when ?repo_id= is present in the URL.
+      // This prevents cross-repo is_latest collisions where Repo A's latest
+      // release would erroneously appear for Repo B's endpoint.
+      const params = new URLSearchParams(window.location.search);
+      const repoId = params.get('repo_id') ?? params.get('repo');
+
+      let query = supabase
         .from('releases')
         .select('*')
         .eq('is_latest', true)
-        .eq('is_public', true)
-        .single();
+        .eq('is_public', true);
+
+      if (repoId) {
+        // Strictly scoped: only return the latest release for this repo.
+        query = query.eq('repository_id', repoId);
+      }
+      // If no repo_id is given, the query falls back to global (legacy behaviour).
+      // Using maybeSingle() avoids a hard 406 error if multiple repos each have
+      // is_latest=true (which the DB trigger now prevents, but just in case).
+      const { data: release, error } = await query.maybeSingle();
 
       if (error || !release) {
         setNotFound(true);
@@ -44,6 +58,7 @@ const LatestVersionPage: React.FC = () => {
       setLoading(false);
     })();
   }, []);
+
 
   // Build JSON payload
   const payload = data

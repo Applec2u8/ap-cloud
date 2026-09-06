@@ -16,4 +16,17 @@ export interface Release {
   is_public: boolean;
   is_latest: boolean;
   created_at: string;
+  /** FK to repositories.id — null for legacy releases not bound to a repo */
+  repository_id: string | null;
 }
+
+export interface LinkAlias {
+  id: string;
+  repository_id: string;
+  slug: string;
+  target_url: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+

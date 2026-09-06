@@ -10,7 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft, GitBranch, ChevronDown, Loader2,
-  AlertCircle, FolderOpen, RefreshCw, Clock, GitCommit,
+  AlertCircle, FolderOpen, RefreshCw, Clock, GitCommit, Tag, Settings, Link as LinkIcon,
 } from 'lucide-react';
 
 function timeAgo(iso: string): string {
@@ -72,25 +72,47 @@ const TreePage: React.FC = () => {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/95 backdrop-blur-lg shadow-sm">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-4 min-w-0">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-3 sm:px-6 gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <Link to="/" className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 text-sm shadow-sm flex-shrink-0">☁️</Link>
-            <div className="text-sm font-semibold flex items-center gap-1.5 min-w-0">
-              <Link to="#" className="text-blue-500 hover:underline flex-shrink-0">{resolvedOwner}</Link>
-              <span className="text-muted-foreground flex-shrink-0">/</span>
-              <Link to={`/repo/${resolvedOwner}/${resolvedRepo}`} className="font-bold hover:underline flex-shrink-0">{resolvedRepo}</Link>
-              <Badge variant="outline" className="ml-2 text-[10px] uppercase font-bold tracking-wider flex-shrink-0">Public</Badge>
+            <div className="text-xs sm:text-sm font-semibold flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1">
+              <Link to="#" className="text-blue-500 hover:underline shrink-0 max-w-[70px] sm:max-w-[120px] truncate">{resolvedOwner}</Link>
+              <span className="text-muted-foreground shrink-0">/</span>
+              <Link to={`/repo/${resolvedOwner}/${resolvedRepo}`} className="font-bold hover:underline truncate max-w-[110px] sm:max-w-[200px] md:max-w-none">{resolvedRepo}</Link>
+              <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider shrink-0 px-1.5 py-0">Public</Badge>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <ThemeSwitcher />
             <Button variant="secondary" size="sm" asChild>
-              <Link to="/cloud-admin" className="h-8 gap-2 rounded-full px-4">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Back to Admin</span>
+              <Link to="/cloud-admin" className="h-8 gap-1.5 sm:gap-2 rounded-full px-2.5 sm:px-4">
+                <ArrowLeft className="h-4 w-4 shrink-0" />
+                <span className="hidden md:inline">Back to Admin</span>
               </Link>
             </Button>
           </div>
+        </div>
+
+        {/* Tab bar */}
+        <div className="mx-auto max-w-6xl px-3 sm:px-6 flex gap-1 border-t border-border/40 overflow-x-auto no-scrollbar flex-nowrap">
+          {[
+            { label: 'Code', to: `/repo/${resolvedOwner}/${resolvedRepo}`, icon: null, active: true },
+            { label: 'Releases', to: `/repo/${resolvedOwner}/${resolvedRepo}/releases`, icon: <Tag className="h-3.5 w-3.5" />, active: false },
+            { label: 'Links', to: `/repo/${resolvedOwner}/${resolvedRepo}/links`, icon: <LinkIcon className="h-3.5 w-3.5" />, active: false },
+            { label: 'Settings', to: `/repo/${resolvedOwner}/${resolvedRepo}/settings`, icon: <Settings className="h-3.5 w-3.5" />, active: false },
+          ].map(tab => (
+            <Link
+              key={tab.label}
+              to={tab.to}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px shrink-0 whitespace-nowrap
+                ${tab.active
+                  ? 'border-blue-500 text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            >
+              {tab.icon}
+              {tab.label}
+            </Link>
+          ))}
         </div>
       </nav>
 
@@ -199,9 +221,25 @@ const TreePage: React.FC = () => {
                   <div className="bg-muted/40 px-4 py-3 border-b border-border/60 flex items-center gap-2 font-semibold text-sm">
                     📝 README.md
                   </div>
-                  <div className="p-8">
-                    <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{readmeContent}</ReactMarkdown>
+                  <div className="p-4 sm:p-6 md:p-8 min-w-0 max-w-full overflow-hidden">
+                    <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none break-words min-w-0">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          pre: ({ node, ...props }) => (
+                            <div className="overflow-x-auto max-w-full my-3 rounded-lg border border-border/50 bg-[#0d1117] dark:bg-black/40 p-3 sm:p-4">
+                              <pre {...props} className="text-xs sm:text-sm font-mono whitespace-pre text-[#e6edf3]" />
+                            </div>
+                          ),
+                          table: ({ node, ...props }) => (
+                            <div className="overflow-x-auto max-w-full my-3">
+                              <table {...props} className="w-full text-left border-collapse text-sm" />
+                            </div>
+                          ),
+                        }}
+                      >
+                        {readmeContent}
+                      </ReactMarkdown>
                     </div>
                   </div>
                 </div>

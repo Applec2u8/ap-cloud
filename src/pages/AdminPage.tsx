@@ -97,6 +97,9 @@ const AdminPanel: React.FC = () => {
   const [updatingVisibilityId, setUpdatingVisibilityId] = useState<string | null>(null);
   const [updatingLatestId, setUpdatingLatestId] = useState<string | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  // Repository binding — every release MUST be scoped to a repository.
+  const [repositories, setRepositories] = useState<{ id: string; name: string }[]>([]);
+  const [selectedRepoId, setSelectedRepoId] = useState<string>('');
 
   const baseUrl = window.location.origin;
   // Edge Function URL (true application/json — preferred for Python clients)
@@ -116,6 +119,18 @@ const AdminPanel: React.FC = () => {
     if (!error && data) setReleases(data as Release[]);
     setLoadingReleases(false);
   }, []);
+
+  const fetchRepositories = useCallback(async () => {
+    const { data } = await supabase
+      .from('repositories')
+      .select('id, name')
+      .order('name', { ascending: true });
+    if (data) {
+      setRepositories(data as { id: string; name: string }[]);
+      // Auto-select the first repo if none chosen yet
+      if (!selectedRepoId && data.length > 0) setSelectedRepoId(data[0].id);
+    }
+  }, [selectedRepoId]);
 
   const uploadWithProgress = (path: string, uploadFile: File, onProgress: (value: number) => void) => {
     const attempt = (retryCount: number): Promise<void> => new Promise((resolve, reject) => {
@@ -141,8 +156,9 @@ const AdminPanel: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchReleases();
-  }, [fetchReleases]);
+    void fetchReleases();
+    void fetchRepositories();
+  }, [fetchReleases, fetchRepositories]);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,11 +166,19 @@ const AdminPanel: React.FC = () => {
       showAlert('error', 'Please fill all fields and select a file.');
       return;
     }
+    // Every release must be bound to a repository to prevent orphaned records
+    // and cross-repo is_latest interference.
+    if (!selectedRepoId) {
+      showAlert('error', 'Please select a repository before uploading.');
+      return;
+    }
 
-    // Validate version uniqueness
-    const existing = releases.find((r) => r.version === version.trim());
+    // Validate version uniqueness within the selected repository
+    const existing = releases.find(
+      (r) => r.version === version.trim() && r.repository_id === selectedRepoId,
+    );
     if (existing) {
-      showAlert('error', `Version v${version.trim()} already exists. Use a different version number.`);
+      showAlert('error', `Version v${version.trim()} already exists in this repository. Use a different version number.`);
       return;
     }
 
@@ -173,7 +197,8 @@ const AdminPanel: React.FC = () => {
       const { data: urlData } = supabase.storage.from('updates').getPublicUrl(storagePath);
       setProgress(80);
 
-      // Insert into releases table
+      // Insert into releases table — repository_id is REQUIRED to keep
+      // is_latest scoping correct across multiple repositories.
       const { data: insertedRelease, error: dbError } = await supabase.from('releases').insert({
         app_name: appName.trim(),
         version: version.trim(),
@@ -183,11 +208,16 @@ const AdminPanel: React.FC = () => {
         release_notes: releaseNotes.trim() || null,
         is_public: isPublic,
         is_latest: false,
+        repository_id: selectedRepoId,
       }).select('id').single();
 
       if (dbError) throw dbError;
       if (isLatest) {
-        const { error: latestError } = await supabase.rpc('set_latest_release', { target_release_id: insertedRelease.id });
+        // Use the repo-scoped RPC so only this repo's latest flag is cleared.
+        const { error: latestError } = await supabase.rpc('set_latest_release_for_repo', {
+          target_release_id: insertedRelease.id,
+          target_repo_id: selectedRepoId,
+        });
         if (latestError) throw latestError;
       }
 
@@ -215,9 +245,18 @@ const AdminPanel: React.FC = () => {
 
   const handleLatestChange = async (release: Release) => {
     if (release.is_latest) return;
+    // repository_id must be present to call the scoped RPC safely.
+    if (!release.repository_id) {
+      showAlert('error', 'This release has no repository assigned. Edit it from the repository view to bind it first.');
+      return;
+    }
     setUpdatingLatestId(release.id);
     try {
-      const { error } = await supabase.rpc('set_latest_release', { target_release_id: release.id });
+      // Use the repo-scoped RPC — only clears is_latest within the same repo.
+      const { error } = await supabase.rpc('set_latest_release_for_repo', {
+        target_release_id: release.id,
+        target_repo_id: release.repository_id,
+      });
       if (error) throw new Error(`Could not set latest version: ${error.message}`);
       await fetchReleases();
       showAlert('success', `Release v${release.version} is now the Latest Version.`);
@@ -368,6 +407,34 @@ const AdminPanel: React.FC = () => {
               <Card>
                 <CardContent className="pt-6">
                   <form onSubmit={handleUpload} className="flex flex-col gap-5">
+                    {/* Repository selector — required; scopes is_latest correctly */}
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="repo-select">
+                        Repository <span className="text-red-400">*</span>
+                      </Label>
+                      {repositories.length === 0 ? (
+                        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+                          No repositories found. Create one in the Repositories tab first.
+                        </p>
+                      ) : (
+                        <select
+                          id="repo-select"
+                          value={selectedRepoId}
+                          onChange={(e) => setSelectedRepoId(e.target.value)}
+                          disabled={uploading}
+                          className="rounded-md border border-input bg-muted/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          <option value="">— Select a repository —</option>
+                          {repositories.map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        Releases are strictly scoped per repository — this prevents is_latest cross-repo interference.
+                      </span>
+                    </div>
+
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="app-name">App Name</Label>
                       <Input
@@ -451,7 +518,7 @@ const AdminPanel: React.FC = () => {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={uploading || !file || !appName || !version}
+                      disabled={uploading || !file || !appName || !version || !selectedRepoId}
                       id="upload-btn"
                     >
                       {uploading ? (

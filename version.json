@@ -1,0 +1,9 @@
+{
+    "version": "0.0.0",
+    "url": "https://your-storage-url/path/to/binary.exe",
+    "notes": "Release notes or update description",
+    "filename": "ANL-AutoHotkey-Installer-v0.0.0.exe",
+    "size": 0,
+    "app_name": "ANL-AutoHotkey",
+    "released_at": "2026-09-06T09:00:15.580031+00:00"
+}

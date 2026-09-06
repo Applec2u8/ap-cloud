@@ -1,0 +1,8 @@
+# Supabase project configuration
+# https://supabase.com/docs/guides/functions/deploy
+
+[functions.latest-version]
+verify_jwt = false
+
+[functions.resolve-alias]
+verify_jwt = false

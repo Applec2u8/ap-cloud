@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
-  ArrowLeft, Copy, Check, Loader2, AlertCircle, Download, FileText,
+  ArrowLeft, Copy, Check, Loader2, AlertCircle, Download, FileText, Tag, Settings, Link as LinkIcon,
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
@@ -104,25 +104,47 @@ const BlobPage: React.FC = () => {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/95 backdrop-blur-lg shadow-sm">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-4 min-w-0">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-3 sm:px-6 gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <Link to="/" className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 text-sm shadow-sm flex-shrink-0">☁️</Link>
-            <div className="text-sm font-semibold flex items-center gap-1.5 min-w-0">
-              <Link to="#" className="text-blue-500 hover:underline flex-shrink-0">{resolvedOwner}</Link>
-              <span className="text-muted-foreground flex-shrink-0">/</span>
-              <Link to={`/repo/${resolvedOwner}/${resolvedRepo}`} className="font-bold hover:underline flex-shrink-0">{resolvedRepo}</Link>
-              <Badge variant="outline" className="ml-2 text-[10px] uppercase font-bold tracking-wider flex-shrink-0">Public</Badge>
+            <div className="text-xs sm:text-sm font-semibold flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1">
+              <Link to="#" className="text-blue-500 hover:underline shrink-0 max-w-[70px] sm:max-w-[120px] truncate">{resolvedOwner}</Link>
+              <span className="text-muted-foreground shrink-0">/</span>
+              <Link to={`/repo/${resolvedOwner}/${resolvedRepo}`} className="font-bold hover:underline truncate max-w-[110px] sm:max-w-[200px] md:max-w-none">{resolvedRepo}</Link>
+              <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider shrink-0 px-1.5 py-0">Public</Badge>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <ThemeSwitcher />
             <Button variant="secondary" size="sm" asChild>
-              <Link to="/cloud-admin" className="h-8 gap-2 rounded-full px-4">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Back to Admin</span>
+              <Link to="/cloud-admin" className="h-8 gap-1.5 sm:gap-2 rounded-full px-2.5 sm:px-4">
+                <ArrowLeft className="h-4 w-4 shrink-0" />
+                <span className="hidden md:inline">Back to Admin</span>
               </Link>
             </Button>
           </div>
+        </div>
+
+        {/* Tab bar */}
+        <div className="mx-auto max-w-6xl px-3 sm:px-6 flex gap-1 border-t border-border/40 overflow-x-auto no-scrollbar flex-nowrap">
+          {[
+            { label: 'Code', to: `/repo/${resolvedOwner}/${resolvedRepo}`, icon: null, active: true },
+            { label: 'Releases', to: `/repo/${resolvedOwner}/${resolvedRepo}/releases`, icon: <Tag className="h-3.5 w-3.5" />, active: false },
+            { label: 'Links', to: `/repo/${resolvedOwner}/${resolvedRepo}/links`, icon: <LinkIcon className="h-3.5 w-3.5" />, active: false },
+            { label: 'Settings', to: `/repo/${resolvedOwner}/${resolvedRepo}/settings`, icon: <Settings className="h-3.5 w-3.5" />, active: false },
+          ].map(tab => (
+            <Link
+              key={tab.label}
+              to={tab.to}
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px shrink-0 whitespace-nowrap
+                ${tab.active
+                  ? 'border-blue-500 text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            >
+              {tab.icon}
+              {tab.label}
+            </Link>
+          ))}
         </div>
       </nav>
 

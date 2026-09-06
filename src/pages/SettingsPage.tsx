@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '../supabaseClient';
 import {
   ArrowLeft, Settings, Globe, Lock, Save, Trash2,
-  AlertTriangle, Check, Loader2, AlertCircle,
+  AlertTriangle, Check, Loader2, AlertCircle, Tag, Code,
+  Link as LinkIcon,
 } from 'lucide-react';
 
 const SettingsPage: React.FC = () => {
@@ -142,44 +143,46 @@ const SettingsPage: React.FC = () => {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Navbar */}
       <nav className="sticky top-0 z-50 border-b border-border/50 bg-background/95 backdrop-blur-lg shadow-sm">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-4 min-w-0">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-3 sm:px-6 gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <Link to="/" className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 text-sm shadow-sm flex-shrink-0">☁️</Link>
-            <div className="text-sm font-semibold flex items-center gap-1.5 min-w-0">
-              <Link to="#" className="text-blue-500 hover:underline">{resolvedOwner}</Link>
-              <span className="text-muted-foreground">/</span>
-              <Link to={`/repo/${resolvedOwner}/${resolvedRepo}`} className="font-bold hover:underline">{resolvedRepo}</Link>
-              <Badge variant="outline" className="ml-2 text-[10px] uppercase font-bold tracking-wider">
-                {visibility === 'private' ? <><Lock className="h-2.5 w-2.5 mr-1" />Private</> : <>Public</>}
+            <div className="text-xs sm:text-sm font-semibold flex items-center gap-1 sm:gap-1.5 min-w-0 flex-1">
+              <Link to="#" className="text-blue-500 hover:underline shrink-0 max-w-[70px] sm:max-w-[120px] truncate">{resolvedOwner}</Link>
+              <span className="text-muted-foreground shrink-0">/</span>
+              <Link to={`/repo/${resolvedOwner}/${resolvedRepo}`} className="font-bold hover:underline truncate max-w-[110px] sm:max-w-[200px] md:max-w-none">{resolvedRepo}</Link>
+              <Badge variant="outline" className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider shrink-0 px-1.5 py-0">
+                {visibility === 'private' ? <><Lock className="h-2.5 w-2.5 mr-1 inline" />Private</> : <>Public</>}
               </Badge>
             </div>
           </div>
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <ThemeSwitcher />
             <Button variant="secondary" size="sm" asChild>
-              <Link to={`/repo/${resolvedOwner}/${resolvedRepo}`} className="h-8 gap-2 rounded-full px-4">
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Back to Repo</span>
+              <Link to={`/repo/${resolvedOwner}/${resolvedRepo}`} className="h-8 gap-1.5 sm:gap-2 rounded-full px-2.5 sm:px-4">
+                <ArrowLeft className="h-4 w-4 shrink-0" />
+                <span className="hidden md:inline">Back to Repo</span>
               </Link>
             </Button>
           </div>
         </div>
 
         {/* Repo tab bar */}
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 flex gap-1 border-t border-border/40">
+        <div className="mx-auto max-w-6xl px-3 sm:px-6 flex gap-1 border-t border-border/40 overflow-x-auto no-scrollbar flex-nowrap">
           {[
-            { label: 'Code', to: `/repo/${resolvedOwner}/${resolvedRepo}` },
-            { label: 'Settings', to: `/repo/${resolvedOwner}/${resolvedRepo}/settings`, active: true },
+            { label: 'Code', to: `/repo/${resolvedOwner}/${resolvedRepo}`, active: false, icon: <Code className="h-3.5 w-3.5" /> },
+            { label: 'Releases', to: `/repo/${resolvedOwner}/${resolvedRepo}/releases`, active: false, icon: <Tag className="h-3.5 w-3.5" /> },
+            { label: 'Links', to: `/repo/${resolvedOwner}/${resolvedRepo}/links`, active: false, icon: <LinkIcon className="h-3.5 w-3.5" /> },
+            { label: 'Settings', to: `/repo/${resolvedOwner}/${resolvedRepo}/settings`, active: true, icon: <Settings className="h-3.5 w-3.5" /> },
           ].map(tab => (
             <Link
               key={tab.label}
               to={tab.to}
-              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 text-xs font-medium border-b-2 transition-colors -mb-px shrink-0 whitespace-nowrap
                 ${tab.active
-                  ? 'border-orange-400 text-foreground'
+                  ? 'border-blue-500 text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground'}`}
             >
-              {tab.label === 'Settings' && <Settings className="h-3.5 w-3.5" />}
+              {tab.icon}
               {tab.label}
             </Link>
           ))}
@@ -238,31 +241,32 @@ const SettingsPage: React.FC = () => {
               {/* Visibility */}
               <div>
                 <label className="block text-sm font-medium mb-2">Visibility</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(['public', 'private'] as const).map(v => (
                     <button
                       key={v}
+                      type="button"
                       onClick={() => setVisibility(v)}
-                      className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-all
+                      className={`flex items-start gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all w-full
                         ${visibility === v
                           ? v === 'public'
-                            ? 'border-blue-500/60 bg-blue-500/8 ring-1 ring-blue-500/30'
-                            : 'border-orange-500/60 bg-orange-500/8 ring-1 ring-orange-500/30'
+                            ? 'border-blue-500/60 bg-blue-500/10 ring-1 ring-blue-500/30'
+                            : 'border-orange-500/60 bg-orange-500/10 ring-1 ring-orange-500/30'
                           : 'border-border/60 hover:border-border hover:bg-muted/20'}`}
                     >
                       <div className={`mt-0.5 flex-shrink-0 ${visibility === v ? (v === 'public' ? 'text-blue-400' : 'text-orange-400') : 'text-muted-foreground'}`}>
                         {v === 'public' ? <Globe className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold capitalize">{v}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold capitalize leading-tight">{v}</p>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed break-words">
                           {v === 'public'
                             ? 'Anyone can see this repository.'
                             : 'Only you and collaborators can see this repository.'}
                         </p>
                       </div>
                       {visibility === v && (
-                        <div className="ml-auto flex-shrink-0">
+                        <div className="ml-1 flex-shrink-0 mt-0.5">
                           <div className={`h-5 w-5 rounded-full flex items-center justify-center ${v === 'public' ? 'bg-blue-500' : 'bg-orange-500'}`}>
                             <Check className="h-3 w-3 text-white" />
                           </div>
