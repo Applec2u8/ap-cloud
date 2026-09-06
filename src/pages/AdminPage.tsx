@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase, supabaseUrl } from '../supabaseClient';
 import type { Release } from '../supabaseClient';
 import DropZone from '../components/DropZone';
@@ -15,9 +15,183 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CloudUpload, Package, LogOut, ShieldCheck, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { CloudUpload, Package, LogOut, ShieldCheck, AlertTriangle, CheckCircle2, Plus, ChevronDown, Search, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD as string;
+
+// ─── Theme detector helper ─────────────────────────────────────────────────────
+const getActiveTheme = (): 'light' | 'dark' | 'liquid-glass' => {
+  const root = document.documentElement;
+  if (root.getAttribute('data-theme') === 'liquid-glass') return 'liquid-glass';
+  if (root.classList.contains('dark')) return 'dark';
+  return 'light';
+};
+
+// ─── Searchable Repo Select ────────────────────────────────────────────────────
+interface SearchableRepoSelectProps {
+  repos: { id: string; name: string }[];
+  value: string;
+  onChange: (id: string) => void;
+  disabled?: boolean;
+}
+
+const SearchableRepoSelect: React.FC<SearchableRepoSelectProps> = ({ repos, value, onChange, disabled }) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [theme, setTheme] = useState(getActiveTheme);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Track theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => setTheme(getActiveTheme()));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Focus search when opened
+  useEffect(() => {
+    if (open) setTimeout(() => searchRef.current?.focus(), 50);
+  }, [open]);
+
+  const selected = repos.find((r) => r.id === value);
+  const filtered = repos.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+
+  const isLiquid = theme === 'liquid-glass';
+  const isDark = theme === 'dark';
+
+  const triggerCls = cn(
+    'flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm transition-all cursor-pointer focus:outline-none',
+    disabled && 'opacity-50 pointer-events-none',
+    isLiquid
+      ? 'border-white/20 bg-white/10 text-white hover:bg-white/15 focus:ring-2 focus:ring-white/30'
+      : isDark
+        ? 'border-white/10 bg-black/20 text-white hover:bg-white/5 focus:ring-2 focus:ring-white/20'
+        : 'border-input bg-background text-foreground hover:bg-accent focus:ring-2 focus:ring-ring'
+  );
+
+  const dropdownCls = cn(
+    'absolute z-50 mt-1 w-full rounded-md border shadow-xl overflow-hidden',
+    isLiquid
+      ? 'border-white/20 bg-[#0f1a35]/95 backdrop-blur-xl'
+      : isDark
+        ? 'border-white/10 bg-[#0d1117] backdrop-blur-sm'
+        : 'border-border bg-popover'
+  );
+
+  const searchCls = cn(
+    'flex items-center gap-2 border-b px-3 py-2',
+    isLiquid ? 'border-white/10' : isDark ? 'border-white/10' : 'border-border'
+  );
+
+  const searchInputCls = cn(
+    'flex-1 bg-transparent text-sm outline-none placeholder:text-sm',
+    isLiquid
+      ? 'text-white placeholder:text-white/40'
+      : isDark
+        ? 'text-white placeholder:text-white/40'
+        : 'text-foreground placeholder:text-muted-foreground'
+  );
+
+  const optionCls = (active: boolean) => cn(
+    'flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-colors select-none',
+    active
+      ? isLiquid
+        ? 'bg-white/20 text-white'
+        : isDark
+          ? 'bg-white/10 text-white'
+          : 'bg-accent text-accent-foreground'
+      : isLiquid
+        ? 'text-white/80 hover:bg-white/10'
+        : isDark
+          ? 'text-white/80 hover:bg-white/5'
+          : 'text-foreground hover:bg-accent'
+  );
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        id="repo-select"
+        className={triggerCls}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className={cn('truncate', !selected && (isLiquid || isDark ? 'text-white/40' : 'text-muted-foreground'))}>
+          {selected ? selected.name : '— Select a repository —'}
+        </span>
+        <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform duration-200', open && 'rotate-180',
+          isLiquid || isDark ? 'text-white/50' : 'text-muted-foreground')} />
+      </button>
+
+      {open && (
+        <div className={dropdownCls}>
+          {/* Search */}
+          <div className={searchCls}>
+            <Search className={cn('h-3.5 w-3.5 shrink-0', isLiquid || isDark ? 'text-white/40' : 'text-muted-foreground')} />
+            <input
+              ref={searchRef}
+              type="text"
+              className={searchInputCls}
+              placeholder="Search repositories..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Options */}
+          <div className="max-h-48 overflow-y-auto" role="listbox">
+            {/* Empty placeholder option */}
+            <div
+              className={optionCls(!value)}
+              role="option"
+              aria-selected={!value}
+              onClick={() => { onChange(''); setOpen(false); setSearch(''); }}
+            >
+              <span className={cn('flex-1 italic', isLiquid || isDark ? 'text-white/40' : 'text-muted-foreground')}>
+                — Select a repository —
+              </span>
+              {!value && <Check className="h-3.5 w-3.5 shrink-0" />}
+            </div>
+
+            {filtered.length === 0 ? (
+              <div className={cn('px-3 py-4 text-center text-sm', isLiquid || isDark ? 'text-white/40' : 'text-muted-foreground')}>
+                No repositories match
+              </div>
+            ) : (
+              filtered.map((r) => (
+                <div
+                  key={r.id}
+                  className={optionCls(r.id === value)}
+                  role="option"
+                  aria-selected={r.id === value}
+                  onClick={() => { onChange(r.id); setOpen(false); setSearch(''); }}
+                >
+                  <span className="flex-1 truncate">{r.name}</span>
+                  {r.id === value && <Check className="h-3.5 w-3.5 shrink-0" />}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ─── Auth Gate ────────────────────────────────────────────────────────────────
 const AuthGate: React.FC<{ onAuth: () => void }> = ({ onAuth }) => {
@@ -97,6 +271,7 @@ const AdminPanel: React.FC = () => {
   const [updatingVisibilityId, setUpdatingVisibilityId] = useState<string | null>(null);
   const [updatingLatestId, setUpdatingLatestId] = useState<string | null>(null);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [showMobileUpload, setShowMobileUpload] = useState(false);
   // Repository binding — every release MUST be scoped to a repository.
   const [repositories, setRepositories] = useState<{ id: string; name: string }[]>([]);
   const [selectedRepoId, setSelectedRepoId] = useState<string>('');
@@ -231,6 +406,7 @@ const AdminPanel: React.FC = () => {
       setReleaseNotes('');
       setIsPublic(true);
       setIsLatest(false);
+      setShowMobileUpload(false);
       setTimeout(() => setProgress(0), 800);
 
       fetchReleases();
@@ -357,21 +533,19 @@ const AdminPanel: React.FC = () => {
             <div className="flex bg-muted/50 p-1 rounded-lg">
               <button
                 onClick={() => setActiveTab('releases')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                  activeTab === 'releases'
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === 'releases'
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 Releases
               </button>
               <button
                 onClick={() => setActiveTab('repositories')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                  activeTab === 'repositories'
-                    ? 'bg-background shadow-sm text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === 'repositories'
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
               >
                 Repositories
               </button>
@@ -393,193 +567,217 @@ const AdminPanel: React.FC = () => {
           )}
 
           {activeTab === 'releases' ? (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.4fr]">
-
-            {/* ── Upload Form ── */}
             <div>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Upload New Release
-                </span>
-                <Separator className="flex-1" />
+              {/* Mobile toggle button for Upload New Release */}
+              <div className="flex items-center justify-between gap-3 mb-4 lg:hidden">
+                <div className="flex items-center gap-2">
+                  <CloudUpload className="h-4 w-4 text-blue-500" />
+                  <span className="font-semibold text-sm">Releases</span>
+                  <Badge variant="purple" className="text-xs">{releases.length}</Badge>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={showMobileUpload ? "secondary" : "default"}
+                  onClick={() => setShowMobileUpload(p => !p)}
+                  className="gap-1.5 rounded-full text-xs font-semibold h-8.5 px-4 shadow-sm"
+                >
+                  {showMobileUpload ? (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform" /> Hide Form
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3.5 w-3.5" /> New Release
+                    </>
+                  )}
+                </Button>
               </div>
 
-              <Card>
-                <CardContent className="pt-6">
-                  <form onSubmit={handleUpload} className="flex flex-col gap-5">
-                    {/* Repository selector — required; scopes is_latest correctly */}
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="repo-select">
-                        Repository <span className="text-red-400">*</span>
-                      </Label>
-                      {repositories.length === 0 ? (
-                        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
-                          No repositories found. Create one in the Repositories tab first.
-                        </p>
-                      ) : (
-                        <select
-                          id="repo-select"
-                          value={selectedRepoId}
-                          onChange={(e) => setSelectedRepoId(e.target.value)}
-                          disabled={uploading}
-                          className="rounded-md border border-input bg-muted/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.4fr] items-start">
+                {/* ── Upload Form ── */}
+                <div className={cn(
+                  "transition-all duration-300",
+                  showMobileUpload ? "block mb-2 animate-fade-in" : "hidden lg:block"
+                )}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      Upload New Release
+                    </span>
+                    <Separator className="flex-1" />
+                  </div>
+
+                  <Card>
+                    <CardContent className="pt-6">
+                      <form onSubmit={handleUpload} className="flex flex-col gap-5">
+                        {/* Repository selector — required; scopes is_latest correctly */}
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="repo-select">
+                            Repository <span className="text-red-400">*</span>
+                          </Label>
+                          {repositories.length === 0 ? (
+                            <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+                              No repositories found. Create one in the Repositories tab first.
+                            </p>
+                          ) : (
+                            <SearchableRepoSelect
+                              repos={repositories}
+                              value={selectedRepoId}
+                              onChange={setSelectedRepoId}
+                              disabled={uploading}
+                            />
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            Releases are strictly scoped per repository — this prevents is_latest cross-repo interference.
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="app-name">App Name</Label>
+                          <Input
+                            id="app-name"
+                            type="text"
+                            placeholder="e.g. MyApp Desktop"
+                            value={appName}
+                            onChange={(e) => setAppName(e.target.value)}
+                            disabled={uploading}
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="version">Version</Label>
+                          <Input
+                            id="version"
+                            type="text"
+                            placeholder="e.g. 1.0.0"
+                            value={version}
+                            onChange={(e) => setVersion(e.target.value)}
+                            disabled={uploading}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            Used in download URLs: /download/1.0.0
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <Label htmlFor="release-notes">Release Notes (optional)</Label>
+                          <Textarea
+                            id="release-notes"
+                            placeholder="What's new in this version..."
+                            value={releaseNotes}
+                            onChange={(e) => setReleaseNotes(e.target.value)}
+                            disabled={uploading}
+                            rows={3}
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                          <label className="flex cursor-pointer items-start gap-3">
+                            <Checkbox
+                              id="is-public"
+                              checked={isPublic}
+                              onCheckedChange={(checked) => setIsPublic(!!checked)}
+                              disabled={uploading}
+                              className="mt-0.5"
+                            />
+                            <span className="text-sm leading-snug">
+                              <strong className="font-semibold text-foreground">Make this release public</strong>
+                              <small className="mt-0.5 block text-xs text-muted-foreground">
+                                Public releases appear on the home page and can be downloaded without login.
+                              </small>
+                            </span>
+                          </label>
+
+                          <label className="flex cursor-pointer items-start gap-3">
+                            <Checkbox
+                              id="is-latest"
+                              checked={isLatest}
+                              onCheckedChange={(checked) => setIsLatest(!!checked)}
+                              disabled={uploading}
+                              className="mt-0.5"
+                            />
+                            <span className="text-sm leading-snug">
+                              <strong className="font-semibold text-foreground">Set as Latest Version</strong>
+                              <small className="mt-0.5 block text-xs text-muted-foreground">
+                                This automatically removes Latest from the previous release.
+                              </small>
+                            </span>
+                          </label>
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <Label>File</Label>
+                          <DropZone onFileSelected={setFile} disabled={uploading} />
+                        </div>
+
+                        {uploading && <ProgressBar progress={progress} label="Uploading to Supabase..." />}
+
+                        <Button
+                          type="submit"
+                          className="w-full"
+                          disabled={uploading || !file || !appName || !version || !selectedRepoId}
+                          id="upload-btn"
                         >
-                          <option value="">— Select a repository —</option>
-                          {repositories.map((r) => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
-                          ))}
-                        </select>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        Releases are strictly scoped per repository — this prevents is_latest cross-repo interference.
-                      </span>
-                    </div>
+                          {uploading ? (
+                            <>
+                              <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <CloudUpload className="h-4 w-4" />
+                              Upload Release
+                            </>
+                          )}
+                        </Button>
+                      </form>
+                    </CardContent>
+                  </Card>
+                </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="app-name">App Name</Label>
-                      <Input
-                        id="app-name"
-                        type="text"
-                        placeholder="e.g. MyApp Desktop"
-                        value={appName}
-                        onChange={(e) => setAppName(e.target.value)}
-                        disabled={uploading}
-                      />
-                    </div>
+                {/* ── Release List ── */}
+                <div>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      All Releases
+                    </span>
+                    <Badge variant="default" className="text-xs">{releases.length}</Badge>
+                    <Separator className="flex-1" />
+                  </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="version">Version</Label>
-                      <Input
-                        id="version"
-                        type="text"
-                        placeholder="e.g. 1.0.0"
-                        value={version}
-                        onChange={(e) => setVersion(e.target.value)}
-                        disabled={uploading}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        Used in download URLs: /download/1.0.0
-                      </span>
+                  {loadingReleases ? (
+                    <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
+                      <span className="spinner" style={{ width: 32, height: 32 }} />
+                      <span className="text-sm">Loading releases...</span>
                     </div>
-
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="release-notes">Release Notes (optional)</Label>
-                      <Textarea
-                        id="release-notes"
-                        placeholder="What's new in this version..."
-                        value={releaseNotes}
-                        onChange={(e) => setReleaseNotes(e.target.value)}
-                        disabled={uploading}
-                        rows={3}
-                      />
+                  ) : releases.length === 0 ? (
+                    <div className="flex flex-col items-center gap-2 py-14 text-center text-muted-foreground">
+                      <Package className="h-10 w-10 opacity-40" />
+                      <p className="font-semibold text-foreground">No releases yet</p>
+                      <p className="text-sm">Upload your first release using the form.</p>
                     </div>
-
-                    <div className="flex flex-col gap-3">
-                      <label className="flex cursor-pointer items-start gap-3">
-                        <Checkbox
-                          id="is-public"
-                          checked={isPublic}
-                          onCheckedChange={(checked) => setIsPublic(!!checked)}
-                          disabled={uploading}
-                          className="mt-0.5"
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {releases.map((r) => (
+                        <ReleaseCard
+                          key={r.id}
+                          release={r}
+                          onDelete={handleDelete}
+                          onVisibilityChange={handleVisibilityChange}
+                          visibilityUpdating={updatingVisibilityId === r.id}
+                          onLatestChange={handleLatestChange}
+                          latestUpdating={updatingLatestId === r.id}
+                          baseUrl={baseUrl}
+                          edgeFunctionUrl={edgeFunctionUrl}
                         />
-                        <span className="text-sm leading-snug">
-                          <strong className="font-semibold text-foreground">Make this release public</strong>
-                          <small className="mt-0.5 block text-xs text-muted-foreground">
-                            Public releases appear on the home page and can be downloaded without login.
-                          </small>
-                        </span>
-                      </label>
-
-                      <label className="flex cursor-pointer items-start gap-3">
-                        <Checkbox
-                          id="is-latest"
-                          checked={isLatest}
-                          onCheckedChange={(checked) => setIsLatest(!!checked)}
-                          disabled={uploading}
-                          className="mt-0.5"
-                        />
-                        <span className="text-sm leading-snug">
-                          <strong className="font-semibold text-foreground">Set as Latest Version</strong>
-                          <small className="mt-0.5 block text-xs text-muted-foreground">
-                            This automatically removes Latest from the previous release.
-                          </small>
-                        </span>
-                      </label>
+                      ))}
                     </div>
+                  )}
 
-                    <div className="flex flex-col gap-1.5">
-                      <Label>File</Label>
-                      <DropZone onFileSelected={setFile} disabled={uploading} />
-                    </div>
 
-                    {uploading && <ProgressBar progress={progress} label="Uploading to Supabase..." />}
-
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={uploading || !file || !appName || !version || !selectedRepoId}
-                      id="upload-btn"
-                    >
-                      {uploading ? (
-                        <>
-                          <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
-                          Uploading...
-                        </>
-                      ) : (
-                        <>
-                          <CloudUpload className="h-4 w-4" />
-                          Upload Release
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* ── Release List ── */}
-            <div>
-              <div className="mb-3 flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  All Releases
-                </span>
-                <Badge variant="default" className="text-xs">{releases.length}</Badge>
-                <Separator className="flex-1" />
+                </div>
               </div>
-
-              {loadingReleases ? (
-                <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
-                  <span className="spinner" style={{ width: 32, height: 32 }} />
-                  <span className="text-sm">Loading releases...</span>
-                </div>
-              ) : releases.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-14 text-center text-muted-foreground">
-                  <Package className="h-10 w-10 opacity-40" />
-                  <p className="font-semibold text-foreground">No releases yet</p>
-                  <p className="text-sm">Upload your first release using the form.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {releases.map((r) => (
-                    <ReleaseCard
-                      key={r.id}
-                      release={r}
-                      onDelete={handleDelete}
-                      onVisibilityChange={handleVisibilityChange}
-                      visibilityUpdating={updatingVisibilityId === r.id}
-                      onLatestChange={handleLatestChange}
-                      latestUpdating={updatingLatestId === r.id}
-                      baseUrl={baseUrl}
-                      edgeFunctionUrl={edgeFunctionUrl}
-                    />
-                  ))}
-                </div>
-              )}
-
-
             </div>
-          </div>
           ) : (
             <RepositoriesTab />
           )}

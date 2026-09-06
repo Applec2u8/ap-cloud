@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Globe, Lock, Plus, Database, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Globe, Lock, Plus, Database, AlertTriangle, CheckCircle2, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Repository {
   id: string;
@@ -23,6 +24,7 @@ const RepositoriesTab: React.FC = () => {
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [showMobileCreate, setShowMobileCreate] = useState(false);
 
   // Form state
   const [name, setName] = useState('');
@@ -73,6 +75,7 @@ const RepositoriesTab: React.FC = () => {
       setName('');
       setDescription('');
       setVisibility('public');
+      setShowMobileCreate(false);
       fetchRepositories();
     } catch (err: any) {
       showAlert('error', err.message || 'Failed to create repository.');
@@ -82,7 +85,7 @@ const RepositoriesTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {alert && (
         <Alert
           variant={alert.type === 'success' ? 'success' : 'error'}
@@ -97,9 +100,38 @@ const RepositoriesTab: React.FC = () => {
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.4fr]">
+      {/* Mobile action button */}
+      <div className="flex items-center justify-between gap-3 lg:hidden">
+        <div className="flex items-center gap-2">
+          <Database className="h-4 w-4 text-blue-500" />
+          <span className="font-semibold text-sm">Repositories</span>
+          <Badge variant="default" className="text-xs">{repositories.length}</Badge>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant={showMobileCreate ? "secondary" : "default"}
+          onClick={() => setShowMobileCreate(p => !p)}
+          className="gap-1.5 rounded-full text-xs font-semibold h-8.5 px-4 shadow-sm"
+        >
+          {showMobileCreate ? (
+            <>
+              <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform" /> Hide Form
+            </>
+          ) : (
+            <>
+              <Plus className="h-3.5 w-3.5" /> New Repository
+            </>
+          )}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.4fr] items-start">
         {/* Create Repo Form */}
-        <div>
+        <div className={cn(
+          "transition-all duration-300",
+          showMobileCreate ? "block mb-2 animate-fade-in" : "hidden lg:block"
+        )}>
           <div className="mb-3 flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
               New Repository
