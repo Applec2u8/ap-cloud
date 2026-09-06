@@ -6,6 +6,11 @@ import DirectDownloadPage from './pages/DirectDownloadPage';
 import LatestVersionPage from './pages/LatestVersionPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PublicPage from './pages/PublicPage';
+import RepositoryPage from './pages/RepositoryPage';
+import TreePage from './pages/TreePage';
+import BlobPage from './pages/BlobPage';
+import SettingsPage from './pages/SettingsPage';
+import { RepoProvider } from './context/RepoContext';
 
 const App: React.FC = () => {
   return (
@@ -20,7 +25,29 @@ const App: React.FC = () => {
         {/* Public download page: /download/:version */}
         <Route path="/download/:version" element={<DownloadPage />} />
 
-        {/* Direct download redirect: /dl/:version  (also supports /dl/latest) */}
+        {/* Repository routes — all share the same RepoProvider context */}
+        <Route
+          path="/repo/:owner/:repoName/*"
+          element={
+            <RepoProvider>
+              <Routes>
+                {/* Root: /repo/:owner/:repoName */}
+                <Route index element={<RepositoryPage />} />
+
+                {/* Directory tree: /repo/:owner/:repoName/tree/:branch/* */}
+                <Route path="tree/:branch/*" element={<TreePage />} />
+
+                {/* File blob: /repo/:owner/:repoName/blob/:branch/* */}
+                <Route path="blob/:branch/*" element={<BlobPage />} />
+
+                {/* Settings: /repo/:owner/:repoName/settings */}
+                <Route path="settings" element={<SettingsPage />} />
+              </Routes>
+            </RepoProvider>
+          }
+        />
+
+        {/* Direct download redirect: /dl/:version */}
         <Route path="/dl/:version" element={<DirectDownloadPage />} />
 
         {/* Auto-Updater JSON endpoint: /api/latest */}

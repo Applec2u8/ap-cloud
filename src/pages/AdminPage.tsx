@@ -5,6 +5,7 @@ import DropZone from '../components/DropZone';
 import ProgressBar from '../components/ProgressBar';
 import ReleaseCard from '../components/ReleaseCard';
 import ThemeSwitcher from '../components/ThemeSwitcher';
+import RepositoriesTab from '../components/RepositoriesTab';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -82,6 +83,7 @@ const AuthGate: React.FC<{ onAuth: () => void }> = ({ onAuth }) => {
 
 // ─── Admin Panel ──────────────────────────────────────────────────────────────
 const AdminPanel: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'releases' | 'repositories'>('releases');
   const [file, setFile] = useState<File | null>(null);
   const [appName, setAppName] = useState('');
   const [version, setVersion] = useState('');
@@ -306,11 +308,35 @@ const AdminPanel: React.FC = () => {
       <main className="flex-1 px-4 py-10 sm:px-6">
         <div className="mx-auto max-w-6xl">
           {/* Page Title */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Release Manager</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Upload and manage installer releases distributed to users.
-            </p>
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">Cloud Admin</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Manage your releases and repositories.
+              </p>
+            </div>
+            <div className="flex bg-muted/50 p-1 rounded-lg">
+              <button
+                onClick={() => setActiveTab('releases')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                  activeTab === 'releases'
+                    ? 'bg-background shadow-sm text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Releases
+              </button>
+              <button
+                onClick={() => setActiveTab('repositories')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                  activeTab === 'repositories'
+                    ? 'bg-background shadow-sm text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Repositories
+              </button>
+            </div>
           </div>
 
           {/* Alert */}
@@ -327,8 +353,8 @@ const AdminPanel: React.FC = () => {
             </Alert>
           )}
 
-          {/* Two-column layout */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.4fr]">
+          {activeTab === 'releases' ? (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.4fr]">
 
             {/* ── Upload Form ── */}
             <div>
@@ -487,6 +513,9 @@ const AdminPanel: React.FC = () => {
 
             </div>
           </div>
+          ) : (
+            <RepositoriesTab />
+          )}
         </div>
       </main>
 
