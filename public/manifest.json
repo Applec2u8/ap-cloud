@@ -1,0 +1,22 @@
+{
+  "name": "AP-Cloud · File Distribution",
+  "short_name": "AP-Cloud",
+  "description": "AP-Cloud — Mini cloud system for distributing installer files.",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/AP-Cloud.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb"
+}
