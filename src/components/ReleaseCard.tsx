@@ -55,7 +55,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   const [deleting, setDeleting] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
-  
+
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
   const [editVersion, setEditVersion] = useState(release.version);
@@ -74,9 +74,9 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
     if (!onUpdate) return;
     setIsSaving(true);
     try {
-      await onUpdate(release.id, { 
-        version: editVersion.trim(), 
-        release_notes: editNotes.trim() || null 
+      await onUpdate(release.id, {
+        version: editVersion.trim(),
+        release_notes: editNotes.trim() || null
       });
       setIsEditing(false);
     } finally {
@@ -129,7 +129,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
 
         {/* Actions */}
         <div
-          className="flex shrink-0 flex-wrap items-center gap-1.5 self-end sm:self-auto"
+          className="flex items-center justify-end gap-1.5"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Latest toggle */}
@@ -252,7 +252,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
               Cancel
             </Button>
             <Button size="sm" onClick={handleSaveEdit} disabled={isSaving}>
-              {isSaving ? <span className="spinner w-4 h-4 mr-2" style={{borderWidth: 2}} /> : null}
+              {isSaving ? <span className="spinner w-4 h-4 mr-2" style={{ borderWidth: 2 }} /> : null}
               Save Changes
             </Button>
           </div>
