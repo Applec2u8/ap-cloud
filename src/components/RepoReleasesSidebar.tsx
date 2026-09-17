@@ -119,7 +119,7 @@ const RepoReleasesSidebar: React.FC<RepoReleasesSidebarProps> = ({ repoId, owner
               </div>
 
               {latest.release_notes && (
-                <p className="mt-2 text-xs text-muted-foreground line-clamp-2 italic">
+                <p className="mt-2 text-xs text-muted-foreground line-clamp-2 italic whitespace-pre-line">
                   {latest.release_notes}
                 </p>
               )}

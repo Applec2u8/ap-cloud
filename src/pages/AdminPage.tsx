@@ -488,6 +488,20 @@ const AdminPanel: React.FC = () => {
     showAlert('success', 'Release deleted.');
   };
 
+  const handleUpdate = async (id: string, updates: Partial<Release>) => {
+    try {
+      const { error } = await supabase
+        .from('releases')
+        .update(updates)
+        .eq('id', id);
+      if (error) throw error;
+      setReleases((prev) => prev.map((r) => r.id === id ? { ...r, ...updates } : r));
+      showAlert('success', 'Release updated.');
+    } catch (err: unknown) {
+      showAlert('error', err instanceof Error ? err.message : 'Could not update release.');
+    }
+  };
+
   const handleSignOut = () => {
     sessionStorage.removeItem('ap_cloud_auth');
     window.location.reload();
@@ -667,7 +681,8 @@ const AdminPanel: React.FC = () => {
                             value={releaseNotes}
                             onChange={(e) => setReleaseNotes(e.target.value)}
                             disabled={uploading}
-                            rows={3}
+                            rows={8}
+                            className="resize-y min-h-[160px]"
                           />
                         </div>
 
@@ -767,6 +782,7 @@ const AdminPanel: React.FC = () => {
                           visibilityUpdating={updatingVisibilityId === r.id}
                           onLatestChange={handleLatestChange}
                           latestUpdating={updatingLatestId === r.id}
+                          onUpdate={handleUpdate}
                           baseUrl={baseUrl}
                           edgeFunctionUrl={edgeFunctionUrl}
                         />

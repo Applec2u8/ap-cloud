@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { Release } from '../supabaseClient';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Trash2, ExternalLink, Copy, Check, Star, ChevronDown, Zap, Link as LinkIcon } from 'lucide-react';
+import { Trash2, ExternalLink, Copy, Check, Star, ChevronDown, Zap, Link as LinkIcon, Edit2 } from 'lucide-react';
 
 interface ReleaseCardProps {
   release: Release;
@@ -11,6 +11,7 @@ interface ReleaseCardProps {
   visibilityUpdating: boolean;
   onLatestChange: (release: Release) => Promise<void>;
   latestUpdating: boolean;
+  onUpdate?: (id: string, updates: Partial<Release>) => Promise<void>;
   baseUrl: string;
   edgeFunctionUrl: string;
 }
@@ -47,18 +48,39 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
   visibilityUpdating,
   onLatestChange,
   latestUpdating,
+  onUpdate,
   baseUrl,
   edgeFunctionUrl,
 }) => {
   const [deleting, setDeleting] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editVersion, setEditVersion] = useState(release.version);
+  const [editNotes, setEditNotes] = useState(release.release_notes || '');
+  const [isSaving, setIsSaving] = useState(false);
 
   const copyToClipboard = async (text: string, key?: string) => {
     await navigator.clipboard.writeText(text);
     if (key) {
       setCopiedKey(key);
       setTimeout(() => setCopiedKey(null), 2000);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!onUpdate) return;
+    setIsSaving(true);
+    try {
+      await onUpdate(release.id, { 
+        version: editVersion.trim(), 
+        release_notes: editNotes.trim() || null 
+      });
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -155,6 +177,19 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             </a>
           </Button>
 
+          {/* Edit toggle */}
+          {onUpdate && (
+            <Button
+              variant="outline"
+              size="icon"
+              className={cn("h-8 w-8", isEditing ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground")}
+              onClick={() => setIsEditing(!isEditing)}
+              title={isEditing ? "Cancel editing" : "Edit release"}
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+
           {/* Expand toggle */}
           <Button
             variant="ghost"
@@ -183,6 +218,46 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
           </Button>
         </div>
       </div>
+
+      {/* ── Edit Form ── */}
+      {isEditing && (
+        <div className="border-t border-border/40 bg-muted/10 px-4 py-4 flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold">Version</label>
+            <input
+              type="text"
+              value={editVersion}
+              onChange={(e) => setEditVersion(e.target.value)}
+              disabled={isSaving}
+              className="rounded-md border border-border/60 bg-background px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold">Release Notes</label>
+            <textarea
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              disabled={isSaving}
+              rows={4}
+              className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              placeholder="What's new..."
+            />
+          </div>
+          <div className="flex justify-end gap-2 mt-1">
+            <Button variant="outline" size="sm" onClick={() => {
+              setIsEditing(false);
+              setEditVersion(release.version);
+              setEditNotes(release.release_notes || '');
+            }} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={isSaving}>
+              {isSaving ? <span className="spinner w-4 h-4 mr-2" style={{borderWidth: 2}} /> : null}
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── Expanded Endpoints ── */}
       {expanded && (() => {

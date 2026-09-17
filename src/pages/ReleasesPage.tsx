@@ -13,7 +13,7 @@ import {
   ArrowLeft, Settings, Tag, CloudUpload, Package,
   Loader2, CheckCircle2, AlertTriangle,
   Trash2, ExternalLink, Copy, Check, Star, ChevronDown,
-  Zap, Link as LinkIcon, Globe, Lock, Code, Plus
+  Zap, Link as LinkIcon, Globe, Lock, Code, Plus, Edit2
 } from 'lucide-react';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -74,6 +74,7 @@ interface RepoReleaseCardProps {
   onDelete: (id: string, filename: string, version: string, repoId: string) => Promise<void>;
   onLatestChange: (release: Release) => Promise<void>;
   onVisibilityChange: (release: Release) => Promise<void>;
+  onUpdate?: (id: string, updates: Partial<Release>) => Promise<void>;
   latestUpdating: boolean;
   visibilityUpdating: boolean;
   baseUrl: string;
@@ -81,12 +82,32 @@ interface RepoReleaseCardProps {
 }
 
 const RepoReleaseCard: React.FC<RepoReleaseCardProps> = ({
-  release, onDelete, onLatestChange, onVisibilityChange,
+  release, onDelete, onLatestChange, onVisibilityChange, onUpdate,
   latestUpdating, visibilityUpdating, baseUrl, edgeFunctionUrl,
 }) => {
   const [deleting, setDeleting] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editVersion, setEditVersion] = useState(release.version);
+  const [editNotes, setEditNotes] = useState(release.release_notes || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveEdit = async () => {
+    if (!onUpdate) return;
+    setIsSaving(true);
+    try {
+      await onUpdate(release.id, { 
+        version: editVersion.trim(), 
+        release_notes: editNotes.trim() || null 
+      });
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const copy = async (text: string, key: string) => {
     await navigator.clipboard.writeText(text);
@@ -229,6 +250,23 @@ const RepoReleaseCard: React.FC<RepoReleaseCardProps> = ({
               {release.is_public ? 'Public' : 'Private'}
             </button>
 
+            {/* Edit */}
+            {onUpdate && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing); }}
+                className={cn(
+                  'h-7.5 inline-flex items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition whitespace-nowrap',
+                  isEditing 
+                    ? 'border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-300' 
+                    : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <Edit2 className="h-3 w-3" />
+                {isEditing ? 'Cancel' : 'Edit'}
+              </button>
+            )}
+
             {/* View */}
             <a
               href={release.public_url}
@@ -243,6 +281,46 @@ const RepoReleaseCard: React.FC<RepoReleaseCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ── Edit Form ── */}
+      {isEditing && (
+        <div className="border-t border-border/40 bg-muted/10 px-3.5 py-4 flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold">Version</label>
+            <input
+              type="text"
+              value={editVersion}
+              onChange={(e) => setEditVersion(e.target.value)}
+              disabled={isSaving}
+              className="rounded-md border border-border/60 bg-background px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold">Release Notes</label>
+            <textarea
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              disabled={isSaving}
+              rows={4}
+              className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+              placeholder="What's new..."
+            />
+          </div>
+          <div className="flex justify-end gap-2 mt-1">
+            <Button variant="outline" size="sm" onClick={() => {
+              setIsEditing(false);
+              setEditVersion(release.version);
+              setEditNotes(release.release_notes || '');
+            }} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSaveEdit} disabled={isSaving}>
+              {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      )}
 
 
       {/* Expanded endpoints — compact two-column grid */}
@@ -487,6 +565,21 @@ const ReleasesPage: React.FC = () => {
     showAlert('success', 'Release deleted.');
   };
 
+  // ── Update (edit release notes / version) ────────────────────────────────────
+  const handleUpdate = async (id: string, updates: Partial<Release>) => {
+    try {
+      const { error } = await supabase
+        .from('releases')
+        .update(updates)
+        .eq('id', id);
+      if (error) throw error;
+      setReleases(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+      showAlert('success', 'Release updated.');
+    } catch (err: unknown) {
+      showAlert('error', err instanceof Error ? err.message : 'Could not update release.');
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* ── Navbar ── */}
@@ -626,12 +719,12 @@ const ReleasesPage: React.FC = () => {
                     </label>
                     <textarea
                       id="rp-notes"
-                      rows={2}
+                      rows={6}
                       placeholder="What's new in this version..."
                       value={releaseNotes}
                       onChange={e => setReleaseNotes(e.target.value)}
                       disabled={uploading}
-                      className="rounded-md border border-border/60 bg-muted/30 px-3 py-1.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
+                      className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm resize-y min-h-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500/40 transition-all"
                     />
                   </div>
 
@@ -729,6 +822,7 @@ const ReleasesPage: React.FC = () => {
                       onDelete={handleDelete}
                       onLatestChange={handleLatestChange}
                       onVisibilityChange={handleVisibilityChange}
+                      onUpdate={handleUpdate}
                       latestUpdating={updatingLatestId === r.id}
                       visibilityUpdating={updatingVisibilityId === r.id}
                       baseUrl={baseUrl}
