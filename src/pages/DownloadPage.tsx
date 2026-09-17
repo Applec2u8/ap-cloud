@@ -38,7 +38,7 @@ const DownloadPage: React.FC = () => {
   const [release, setRelease] = useState<Release | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!version) return;
@@ -99,11 +99,12 @@ const DownloadPage: React.FC = () => {
   }
 
   const directDownloadUrl = `${window.location.origin}/dl/${release.version}`;
+  const downloadPageUrl = `${window.location.origin}/download/${release.version}`;
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(directDownloadUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async (url: string, key: string) => {
+    await navigator.clipboard.writeText(url);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
   };
 
   const INFO_ITEMS = [
@@ -209,33 +210,59 @@ const DownloadPage: React.FC = () => {
             </Card>
           )}
 
-          {/* ── Direct Download URL ── */}
-          <Card className="text-center">
-            <CardContent className="pt-6">
-              <p className="mb-3 text-xs text-muted-foreground">
-                🤖 Use this URL in{' '}
-                <code className="rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-600 dark:text-blue-400">
-                  version.json
-                </code>{' '}
-                for auto-updates
-              </p>
-              <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/50 p-3">
-                <span className="flex-1 truncate font-mono text-xs text-muted-foreground">
-                  {directDownloadUrl}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 flex-shrink-0"
-                  id="copy-direct-url-btn"
-                  onClick={handleCopy}
-                >
-                  {copied ? (
-                    <><Check className="h-3.5 w-3.5 text-emerald-500" /> Copied</>
-                  ) : (
-                    <><Copy className="h-3.5 w-3.5" /> Copy</>
-                  )}
-                </Button>
+          {/* ── URLs for Sharing and Updates ── */}
+          <Card className="text-left">
+            <CardContent className="pt-6 flex flex-col gap-4">
+              {/* Download Page URL */}
+              <div>
+                <p className="mb-2 text-xs font-bold text-foreground">
+                  🔗 Download Page URL <span className="font-normal text-muted-foreground">(Share with users)</span>
+                </p>
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-muted/50 p-3">
+                  <span className="flex-1 truncate font-mono text-xs text-muted-foreground">
+                    {downloadPageUrl}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 flex-shrink-0"
+                    onClick={() => handleCopy(downloadPageUrl, 'page')}
+                  >
+                    {copiedKey === 'page' ? (
+                      <><Check className="h-3.5 w-3.5 text-emerald-500" /> Copied</>
+                    ) : (
+                      <><Copy className="h-3.5 w-3.5" /> Copy</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Direct Download URL */}
+              <div>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  🤖 Direct Download (Use in{' '}
+                  <code className="rounded bg-blue-500/10 px-1.5 py-0.5 text-blue-600 dark:text-blue-400">
+                    version.json
+                  </code>{' '}
+                  for auto-updates)
+                </p>
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-muted/50 p-3">
+                  <span className="flex-1 truncate font-mono text-xs text-muted-foreground">
+                    {directDownloadUrl}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 flex-shrink-0"
+                    onClick={() => handleCopy(directDownloadUrl, 'direct')}
+                  >
+                    {copiedKey === 'direct' ? (
+                      <><Check className="h-3.5 w-3.5 text-emerald-500" /> Copied</>
+                    ) : (
+                      <><Copy className="h-3.5 w-3.5" /> Copy</>
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -244,10 +271,9 @@ const DownloadPage: React.FC = () => {
 
       <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
         AP-Cloud ·{' '}
-        <a href="/admin" className="text-muted-foreground hover:text-foreground">
-          Admin
-        </a>{' '}
-        · Powered by Supabase
+        Website Director: <a href="https://web.facebook.com/kkop.gonc/" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground">
+          Apple.2u8
+        </a>
       </footer>
     </div>
   );

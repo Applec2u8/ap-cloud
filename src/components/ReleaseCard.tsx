@@ -171,7 +171,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
             size="sm"
             className="h-8 text-blue-600 border-blue-300/40 hover:bg-blue-500/10 hover:border-blue-400"
           >
-            <a href={release.public_url} target="_blank" rel="noreferrer" title="Open file in browser">
+            <a href={`${baseUrl}/download/${release.version}`} target="_blank" rel="noreferrer" title="Open download page">
               <ExternalLink className="h-3.5 w-3.5" />
               <span className="hidden xl:inline">View</span>
             </a>
