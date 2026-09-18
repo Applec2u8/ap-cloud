@@ -79,11 +79,12 @@ interface RepoReleaseCardProps {
   visibilityUpdating: boolean;
   baseUrl: string;
   edgeFunctionUrl: string;
+  downloadCount?: number;
 }
 
 const RepoReleaseCard: React.FC<RepoReleaseCardProps> = ({
   release, onDelete, onLatestChange, onVisibilityChange, onUpdate,
-  latestUpdating, visibilityUpdating, baseUrl, edgeFunctionUrl,
+  latestUpdating, visibilityUpdating, baseUrl, edgeFunctionUrl, downloadCount = 0
 }) => {
   const [deleting, setDeleting] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -179,10 +180,13 @@ const RepoReleaseCard: React.FC<RepoReleaseCardProps> = ({
                 )}
               </div>
 
-              {/* Sub-row: Size, Date, Filename */}
+              {/* Sub-row: Size, Date, Filename, Downloads */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                 <span className="whitespace-nowrap font-medium">💾 {formatSize(release.size)}</span>
                 <span className="whitespace-nowrap">📅 {formatDate(release.created_at)}</span>
+                <span className="whitespace-nowrap font-medium text-emerald-600 dark:text-emerald-400">
+                  ⬇️ {downloadCount} dl{downloadCount !== 1 && 's'}
+                </span>
                 <span className="hidden md:inline truncate max-w-[200px] font-mono text-[11px] opacity-75">
                   {release.filename}
                 </span>
@@ -394,6 +398,7 @@ const ReleasesPage: React.FC = () => {
 
   // Release list state
   const [releases, setReleases] = useState<Release[]>([]);
+  const [downloadCounts, setDownloadCounts] = useState<Record<string, number>>({});
   const [loadingReleases, setLoadingReleases] = useState(true);
   const [updatingLatestId, setUpdatingLatestId] = useState<string | null>(null);
   const [updatingVisibilityId, setUpdatingVisibilityId] = useState<string | null>(null);
@@ -426,7 +431,27 @@ const ReleasesPage: React.FC = () => {
       .select('*')
       .eq('repository_id', repoId)
       .order('created_at', { ascending: false });
-    if (!error && data) setReleases(data as Release[]);
+      
+    if (!error && data) {
+      setReleases(data as Release[]);
+      
+      // Fetch download counts for these releases
+      const { data: dls } = await supabase
+        .from('download_logs')
+        .select('version')
+        .eq('repository_id', repoId)
+        .eq('download_type', 'release_binary');
+        
+      if (dls) {
+        const counts: Record<string, number> = {};
+        dls.forEach(dl => {
+          if (dl.version) {
+            counts[dl.version] = (counts[dl.version] || 0) + 1;
+          }
+        });
+        setDownloadCounts(counts);
+      }
+    }
     setLoadingReleases(false);
   }, []);
 
@@ -827,6 +852,7 @@ const ReleasesPage: React.FC = () => {
                       visibilityUpdating={updatingVisibilityId === r.id}
                       baseUrl={baseUrl}
                       edgeFunctionUrl={edgeFunctionUrl}
+                      downloadCount={downloadCounts[r.version] || 0}
                     />
                   ))}
                 </div>

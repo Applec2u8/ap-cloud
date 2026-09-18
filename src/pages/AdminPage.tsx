@@ -6,6 +6,7 @@ import ProgressBar from '../components/ProgressBar';
 import ReleaseCard from '../components/ReleaseCard';
 import ThemeSwitcher from '../components/ThemeSwitcher';
 import RepositoriesTab from '../components/RepositoriesTab';
+import AnalyticsTab from '../components/AnalyticsTab';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -257,7 +258,7 @@ const AuthGate: React.FC<{ onAuth: () => void }> = ({ onAuth }) => {
 
 // ─── Admin Panel ──────────────────────────────────────────────────────────────
 const AdminPanel: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'releases' | 'repositories'>('releases');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'repositories' | 'releases'>('analytics');
   const [file, setFile] = useState<File | null>(null);
   const [appName, setAppName] = useState('');
   const [version, setVersion] = useState('');
@@ -546,13 +547,13 @@ const AdminPanel: React.FC = () => {
             </div>
             <div className="flex bg-muted/50 p-1 rounded-lg">
               <button
-                onClick={() => setActiveTab('releases')}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === 'releases'
+                onClick={() => setActiveTab('analytics')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === 'analytics'
                   ? 'bg-background shadow-sm text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
-                Releases
+                Analytics
               </button>
               <button
                 onClick={() => setActiveTab('repositories')}
@@ -562,6 +563,15 @@ const AdminPanel: React.FC = () => {
                   }`}
               >
                 Repositories
+              </button>
+              <button
+                onClick={() => setActiveTab('releases')}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === 'releases'
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+                  }`}
+              >
+                Releases
               </button>
             </div>
           </div>
@@ -794,8 +804,10 @@ const AdminPanel: React.FC = () => {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'repositories' ? (
             <RepositoriesTab />
+          ) : (
+            <AnalyticsTab />
           )}
         </div>
       </main>

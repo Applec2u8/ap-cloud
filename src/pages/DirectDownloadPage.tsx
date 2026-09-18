@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
+import { parseUA } from '../lib/uaParser';
 
 /**
  * DirectDownloadPage — /dl/:version
@@ -22,7 +23,7 @@ const DirectDownloadPage: React.FC = () => {
     (async () => {
       let query = supabase
         .from('releases')
-        .select('public_url, version')
+        .select('public_url, version, repository_id')
         .eq('is_public', true);
 
       // Support the special "latest" keyword
@@ -37,6 +38,20 @@ const DirectDownloadPage: React.FC = () => {
       if (error || !data?.public_url) {
         navigate('/404', { replace: true });
         return;
+      }
+
+      // ── Track the download (rich UA via parseUA) ──
+      if (data.repository_id) {
+        const ua = parseUA();
+        void supabase.from('download_logs').insert({
+          repository_id: data.repository_id,
+          version: data.version,
+          download_type: 'release_binary',
+          device_type: ua.deviceType,
+          device_name: ua.deviceName,
+          browser: ua.browser,
+          os: ua.os,
+        }).then(undefined, console.error);
       }
 
       // Redirect immediately — browser will trigger native download

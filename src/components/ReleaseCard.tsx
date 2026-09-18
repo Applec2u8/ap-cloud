@@ -262,16 +262,20 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
       {/* ── Expanded Endpoints ── */}
       {expanded && (() => {
         const dlVersioned = `${baseUrl}/dl/${release.version}`;
+        // Build repo-scoped edge function URL if repository_id is available
+        const scopedEdgeFnUrl = release.repository_id
+          ? `${edgeFunctionUrl.split('?')[0]}?repo_id=${release.repository_id}`
+          : edgeFunctionUrl;
         const ENDPOINTS = [
           {
             key: 'edge-fn',
             icon: '⭐',
-            label: 'Edge Function (Latest JSON)',
-            description: 'Returns the latest release data (if this release is marked as latest)',
-            url: edgeFunctionUrl,
+            label: 'Edge Function (Repo-Scoped Latest JSON)',
+            description: 'Returns the latest release data scoped to this repository. Use this URL for auto-updaters.',
+            url: scopedEdgeFnUrl,
             badge: 'application/json ✓',
             badgeColor: 'text-amber-600 border-amber-600/30 bg-amber-600/10 dark:text-amber-400 dark:border-amber-400/30 dark:bg-amber-400/10',
-            code: `# Python Auto-Updater\nimport requests\ndata = requests.get("${edgeFunctionUrl}").json()\nlatest_version = data["version"]\ndownload_url   = data["url"]`,
+            code: `# Python Auto-Updater\nimport requests\ndata = requests.get("${scopedEdgeFnUrl}").json()\nlatest_version = data["version"]\ndownload_url   = data["url"]`,
           },
           {
             key: 'dl-version',
@@ -315,7 +319,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({
                       {copiedKey === `${ep.key}-url` ? (
                         <><Check className="h-3 w-3 text-emerald-500" /> Copied</>
                       ) : (
-                        <><Copy className="h-3 w-3" /> Copy URL</>
+                        <><Copy className="h-3 w-3" /> Copy API</>
                       )}
                     </button>
                   </div>

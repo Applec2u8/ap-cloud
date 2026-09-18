@@ -13,6 +13,7 @@ import { useRepo } from '../context/RepoContext';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { supabase } from '../supabaseClient';
+import { parseUA } from '../lib/uaParser';
 import {
   GitBranch, Copy, Clock, CheckCircle2, Code, BookOpen,
   ArrowLeft, ChevronDown, GitCommit, History, Download,
@@ -26,6 +27,7 @@ function timeAgo(iso: string): string {
   if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
   return `${Math.round(diff / 86400)}d ago`;
 }
+
 
 const RepositoryPage: React.FC = () => {
   const { owner, repoName } = useParams();
@@ -61,6 +63,24 @@ const RepositoryPage: React.FC = () => {
       if (commitList.length > 0 && files.length === 0) {
         await loadFiles(repo.id, commitList[0]);
       }
+
+      // ── Track Repository View (throttled 30min, rich UA data) ──
+      const trackKey = `ap_cloud_view_${repo.id}`;
+      const lastTracked = localStorage.getItem(trackKey);
+      const now = Date.now();
+      if (!lastTracked || now - parseInt(lastTracked, 10) > 1800000) {
+        const ua = parseUA();
+        supabase.from('repository_views').insert({
+          repository_id: repo.id,
+          user_agent: navigator.userAgent,
+          device_type: ua.deviceType,
+          device_name: ua.deviceName,
+          browser: ua.browser,
+          os: ua.os,
+        }).then(() => {
+          localStorage.setItem(trackKey, now.toString());
+        }, console.error);
+      }
     })();
   }, [resolvedRepo]);
 
@@ -78,6 +98,19 @@ const RepositoryPage: React.FC = () => {
 
   const handleDownloadCommit = async (commit: typeof commits[0]) => {
     if (!repoInfo) return;
+
+    // ── Track source code download (rich UA data) ──
+    const ua = parseUA();
+    void supabase.from('download_logs').insert({
+      repository_id: repoInfo.id,
+      version: commit.commit_hash.slice(0, 7),
+      download_type: 'source_code',
+      device_type: ua.deviceType,
+      device_name: ua.deviceName,
+      browser: ua.browser,
+      os: ua.os,
+    }).then(undefined, console.error);
+
     const path = `${repoInfo.id}/${commit.commit_hash}/source.zip`;
     const { data } = await supabase.storage.from('repo-storage').createSignedUrl(path, 60);
     if (data?.signedUrl) window.open(data.signedUrl, '_blank');

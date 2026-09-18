@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import type { Release } from '../supabaseClient';
 import ThemeSwitcher from '../components/ThemeSwitcher';
+import { parseUA } from '../lib/uaParser';
 import { Search, Cloud, LayoutGrid, Info, ArrowUpRight, Package, Users2, Globe, MessageCircle, Share2, Download, Check, Star } from 'lucide-react';
 
 const formatSize = (bytes: number) => {
@@ -41,6 +42,37 @@ const PublicPage: React.FC = () => {
     await navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // Track release row click (release view event)
+  const trackReleaseView = (release: Release) => {
+    if (!release.repository_id) return;
+    const ua = parseUA();
+    void supabase.from('release_views').insert({
+      repository_id: release.repository_id,
+      version: release.version,
+      event_type: 'row_click',
+      device_type: ua.deviceType,
+      device_name: ua.deviceName,
+      browser: ua.browser,
+      os: ua.os,
+      user_agent: navigator.userAgent,
+    }).then(undefined, console.error);
+  };
+
+  // Track download click
+  const trackDownload = (release: Release) => {
+    if (!release.repository_id) return;
+    const ua = parseUA();
+    void supabase.from('download_logs').insert({
+      repository_id: release.repository_id,
+      version: release.version,
+      download_type: 'release_binary',
+      device_type: ua.deviceType,
+      device_name: ua.deviceName,
+      browser: ua.browser,
+      os: ua.os,
+    }).then(undefined, console.error);
   };
 
   useEffect(() => {
@@ -194,14 +226,15 @@ const PublicPage: React.FC = () => {
                 return (
                   <div key={release.id}>
 
-                    {/* ════════════════════════════════════════
+                    {/* ────────────────────────────────────────
                         MOBILE card (< sm)
-                    ════════════════════════════════════════ */}
+                    ──────────────────────────────────────── */}
                     <div className="sm:hidden rounded-xl border border-border bg-card mx-0 p-4 transition hover:border-blue-300/60 hover:bg-accent/30">
                       {/* Card header: clickable area → navigate to detail page */}
                       <Link
                         to={`/download/${release.version}`}
                         className="flex items-center gap-3 mb-3 no-underline"
+                        onClick={() => trackReleaseView(release)}
                       >
                         <span className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-xl bg-blue-50 text-2xl border border-blue-100/60 dark:bg-blue-950/40 dark:border-blue-900/30">
                           {getFileIcon(release.filename)}
@@ -259,7 +292,10 @@ const PublicPage: React.FC = () => {
                           href={downloadUrl}
                           target="_blank"
                           rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            trackDownload(release);
+                          }}
                           className="flex flex-[2] items-center justify-center gap-2 rounded-lg bg-blue-600 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
                           title="Download File"
                         >
@@ -269,12 +305,13 @@ const PublicPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* ════════════════════════════════════════
+                    {/* ────────────────────────────────────────
                         DESKTOP table row (sm+)
-                    ════════════════════════════════════════ */}
+                    ──────────────────────────────────────── */}
                     <Link
                       to={`/download/${release.version}`}
                       className="hidden sm:grid grid-cols-[2fr_1fr_1fr_1fr_auto] items-center gap-x-4 border-b border-border px-4 py-3 text-sm text-muted-foreground no-underline transition hover:bg-accent cursor-pointer"
+                      onClick={() => trackReleaseView(release)}
                     >
                       {/* App name + filename */}
                       <div className="flex min-w-0 items-center gap-3">
@@ -319,7 +356,10 @@ const PublicPage: React.FC = () => {
                           href={downloadUrl}
                           target="_blank"
                           rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            trackDownload(release);
+                          }}
                           className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-white transition hover:bg-blue-700"
                           title="Download File"
                         >

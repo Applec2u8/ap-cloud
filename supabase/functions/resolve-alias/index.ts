@@ -83,6 +83,26 @@ Deno.serve(async (req: Request) => {
 
     // ── 3a. Redirect mode ─────────────────────────────────────────────────
     if (mode === 'redirect') {
+      // ── Track resolution as a binary download ──
+      try {
+        fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/track-analytics`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-forwarded-for': req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+            'user-agent': req.headers.get('user-agent') || 'unknown'
+          },
+          body: JSON.stringify({
+            action: 'download',
+            repo_id: repoId,
+            version: slug,
+            download_type: 'release_binary'
+          })
+        }).catch(err => console.error('Tracking err:', err));
+      } catch (e) {
+        console.error(e);
+      }
+
       return new Response(null, {
         status: 302,
         headers: {
@@ -137,6 +157,31 @@ Deno.serve(async (req: Request) => {
     // Re-serialize to ensure a clean, compact JSON output with no BOM or
     // leading whitespace that could trip up strict JSON parsers.
     const cleanBody = JSON.stringify(parsedJson);
+
+    // ── Track resolution as a binary download ──
+    try {
+      const versionToLog = (parsedJson as any)?.version || slug;
+      // Fire-and-forget fetch to track-analytics. 
+      // Because we're in Deno, fetch won't keep the function alive after return,
+      // but Deno.serve handles background tasks poorly, so we'll just await it or fire and hope.
+      // Better to await with a short timeout, or just fetch normally.
+      fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/track-analytics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-forwarded-for': req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+          'user-agent': req.headers.get('user-agent') || 'unknown'
+        },
+        body: JSON.stringify({
+          action: 'download',
+          repo_id: repoId,
+          version: versionToLog,
+          download_type: 'release_binary'
+        })
+      }).catch(err => console.error('Tracking err:', err));
+    } catch (e) {
+      console.error(e);
+    }
 
     return new Response(cleanBody, {
       status: 200,

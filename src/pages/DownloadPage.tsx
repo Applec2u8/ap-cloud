@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import type { Release } from '../supabaseClient';
 import ThemeSwitcher from '../components/ThemeSwitcher';
+import { parseUA } from '../lib/uaParser';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -53,8 +54,24 @@ const DownloadPage: React.FC = () => {
       if (error || !data) {
         setNotFound(true);
       } else {
-        setRelease(data as Release);
-        document.title = `Download ${(data as Release).app_name} v${version} — AP-Cloud`;
+        const rel = data as Release;
+        setRelease(rel);
+        document.title = `Download ${rel.app_name} v${version} — AP-Cloud`;
+
+        // ── Track release detail page view ──
+        if (rel.repository_id) {
+          const ua = parseUA();
+          void supabase.from('release_views').insert({
+            repository_id: rel.repository_id,
+            version: rel.version,
+            event_type: 'page_view',
+            device_type: ua.deviceType,
+            device_name: ua.deviceName,
+            browser: ua.browser,
+            os: ua.os,
+            user_agent: navigator.userAgent,
+          }).then(undefined, console.error);
+        }
       }
       setLoading(false);
     })();
@@ -184,6 +201,21 @@ const DownloadPage: React.FC = () => {
               download
               id="download-now-btn"
               rel="noreferrer"
+              onClick={() => {
+                // ── Track binary download (rich UA) ──
+                if (release.repository_id) {
+                  const ua = parseUA();
+                  void supabase.from('download_logs').insert({
+                    repository_id: release.repository_id,
+                    version: release.version,
+                    download_type: 'release_binary',
+                    device_type: ua.deviceType,
+                    device_name: ua.deviceName,
+                    browser: ua.browser,
+                    os: ua.os,
+                  }).then(undefined, console.error);
+                }
+              }}
               className="inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 px-12 py-5 text-lg font-bold text-white shadow-[0_8px_32px_rgba(37,99,235,0.4)] no-underline transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_16px_48px_rgba(37,99,235,0.55)] active:translate-y-0"
             >
               <Download className="h-5 w-5 animate-bounce-down" />
