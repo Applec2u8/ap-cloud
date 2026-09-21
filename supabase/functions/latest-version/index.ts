@@ -75,17 +75,71 @@ Deno.serve(async (req: Request) => {
     }
 
     // ------------------------------------------------------------------
-    // 3. Build the response payload — shape is unchanged for compatibility.
+    // 3. Handle 'action=download' mode
     // ------------------------------------------------------------------
+    const action = url.searchParams.get('action');
+    const ip = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    const userAgent = req.headers.get('user-agent') || 'unknown';
+
+    if (action === 'download') {
+      // 3.1 Log the Binary Download
+      try {
+        const { error: logError } = await supabase.from('download_logs').insert({
+          repository_id: repoId,
+          download_type: 'release_binary', 
+          version: data.version,
+          device_type: 'Desktop/PC',
+          browser_os: 'Windows', // AHK is Windows-based
+          user_ip: ip
+        });
+        if (logError) console.error('Error logging binary download:', logError);
+      } catch (logErr) {
+        console.error('Error in binary logging block:', logErr);
+      }
+
+      // 3.2 Redirect to the actual Storage URL
+      return new Response(null, {
+        status: 302,
+        headers: {
+          ...corsHeaders,
+          Location: data.public_url,
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // 4. Handle Version Check mode (default)
+    // ------------------------------------------------------------------
+    
+    // Construct a proxy download URL that points back to this function with action=download
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || url.origin;
+    const proxyDownloadUrl = `${supabaseUrl}/functions/v1/latest-version?repo_id=${repoId}&action=download`;
+
     const payload = {
       version: data.version,
-      url: data.public_url,
+      url: proxyDownloadUrl, // Replace direct storage URL with proxy URL
       notes: data.release_notes ?? '',
       filename: data.filename,
       size: data.size,
       app_name: data.app_name,
       released_at: data.created_at,
     };
+
+    // Log the Version Check
+    try {
+      const { error: logError } = await supabase.from('download_logs').insert({
+        repository_id: repoId,
+        download_type: 'version_check', 
+        version: data.version,
+        device_type: 'Desktop/PC',
+        browser_os: 'Windows', // AHK is Windows-based
+        user_ip: ip
+      });
+      if (logError) console.error('Error logging version check:', logError);
+    } catch (logErr) {
+      console.error('Error in version check logging block:', logErr);
+    }
 
     return new Response(JSON.stringify(payload, null, 2), {
       status: 200,
