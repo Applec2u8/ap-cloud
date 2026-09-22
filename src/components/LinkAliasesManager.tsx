@@ -6,7 +6,7 @@ import {
   Link as LinkIcon, Copy, Check, Plus, Pencil, Trash2,
   Loader2, AlertTriangle, CheckCircle2, X, ExternalLink,
   Zap, ChevronRight, Upload, Globe2, FileJson,
-  ChevronDown, Eye,
+  ChevronDown, Eye, ShieldAlert
 } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -32,6 +32,7 @@ const formatDate = (iso: string) =>
 interface Props {
   repoId: string;
   edgeFunctionUrl: string;
+  isAdmin?: boolean;
 }
 
 // ─── Inline alert ─────────────────────────────────────────────────────────────
@@ -474,9 +475,10 @@ interface AliasRowProps {
   repoId: string;
   onEdit: (a: LinkAlias) => void;
   onDeleted: (id: string) => void;
+  isAdmin?: boolean;
 }
 
-const AliasRow: React.FC<AliasRowProps> = ({ alias, repoId, onEdit, onDeleted }) => {
+const AliasRow: React.FC<AliasRowProps> = ({ alias, repoId, onEdit, onDeleted, isAdmin }) => {
   const [copied, setCopied] = useState<'alias' | 'target' | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -563,27 +565,31 @@ const AliasRow: React.FC<AliasRowProps> = ({ alias, repoId, onEdit, onDeleted })
           </a>
 
           {/* Edit */}
-          <button
-            type="button"
-            onClick={() => onEdit(alias)}
-            title="Edit alias"
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-border/40 text-muted-foreground hover:bg-accent hover:text-foreground transition"
-          >
-            <Pencil className="h-3 w-3" />
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => onEdit(alias)}
+              title="Edit alias"
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-border/40 text-muted-foreground hover:bg-accent hover:text-foreground transition"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
 
           {/* Delete */}
-          <button
-            type="button"
-            onClick={() => void handleDelete()}
-            disabled={deleting}
-            title="Delete alias"
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-red-400/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition disabled:opacity-50"
-          >
-            {deleting
-              ? <span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
-              : <Trash2 className="h-3 w-3" />}
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+              title="Delete alias"
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-red-400/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition disabled:opacity-50"
+            >
+              {deleting
+                ? <span className="spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} />
+                : <Trash2 className="h-3 w-3" />}
+            </button>
+          )}
         </div>
       </div>
 
@@ -602,7 +608,7 @@ const AliasRow: React.FC<AliasRowProps> = ({ alias, repoId, onEdit, onDeleted })
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-const LinkAliasesManager: React.FC<Props> = ({ repoId, edgeFunctionUrl }) => {
+const LinkAliasesManager: React.FC<Props> = ({ repoId, edgeFunctionUrl, isAdmin }) => {
   const [aliases, setAliases] = useState<LinkAlias[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -662,7 +668,7 @@ const LinkAliasesManager: React.FC<Props> = ({ repoId, edgeFunctionUrl }) => {
             Permanent proxy URLs that always resolve to the configured target — even when the target URL changes.
           </p>
         </div>
-        {!showForm && (
+        {!showForm && isAdmin && (
           <button
             type="button"
             id="link-alias-create-btn"
@@ -703,6 +709,15 @@ const LinkAliasesManager: React.FC<Props> = ({ repoId, edgeFunctionUrl }) => {
       </div>
 
       {/* Alias list */}
+      {!isAdmin && (
+        <div className="mb-2 rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-sm flex items-start gap-2">
+          <ShieldAlert className="h-4 w-4 text-blue-500 mt-0.5" />
+          <div>
+            <p className="font-semibold text-blue-600 dark:text-blue-400">Read-Only Mode</p>
+            <p className="text-muted-foreground mt-0.5">Admin login is required to create or edit link aliases.</p>
+          </div>
+        </div>
+      )}
       {loading ? (
         <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
           <Loader2 className="h-7 w-7 animate-spin" />
@@ -717,7 +732,7 @@ const LinkAliasesManager: React.FC<Props> = ({ repoId, edgeFunctionUrl }) => {
           <p className="text-xs max-w-xs">
             Create your first link alias. Client applications embed this URL permanently — you update only the target mapping here.
           </p>
-          {!showForm && (
+          {!showForm && isAdmin && (
             <button
               type="button"
               onClick={() => { setEditing(null); setShowForm(true); }}
@@ -737,6 +752,7 @@ const LinkAliasesManager: React.FC<Props> = ({ repoId, edgeFunctionUrl }) => {
               repoId={repoId}
               onEdit={handleEdit}
               onDeleted={handleDeleted}
+              isAdmin={isAdmin}
             />
           ))}
         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase, supabaseUrl } from '../supabaseClient';
 import type { Release } from '../supabaseClient';
+import type { Session } from '@supabase/supabase-js';
 import DropZone from '../components/DropZone';
 import ProgressBar from '../components/ProgressBar';
 import ReleaseCard from '../components/ReleaseCard';
@@ -16,10 +17,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CloudUpload, Package, LogOut, ShieldCheck, AlertTriangle, CheckCircle2, Plus, ChevronDown, Search, Check } from 'lucide-react';
+import { CloudUpload, Package, LogOut, ShieldCheck, AlertTriangle, CheckCircle2, Plus, ChevronDown, Search, Check, Mail, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD as string;
 
 // ─── Theme detector helper ─────────────────────────────────────────────────────
 const getActiveTheme = (): 'light' | 'dark' | 'liquid-glass' => {
@@ -195,18 +194,27 @@ const SearchableRepoSelect: React.FC<SearchableRepoSelectProps> = ({ repos, valu
 };
 
 // ─── Auth Gate ────────────────────────────────────────────────────────────────
-const AuthGate: React.FC<{ onAuth: () => void }> = ({ onAuth }) => {
+const AuthGate: React.FC = () => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      sessionStorage.setItem('ap_cloud_auth', '1');
-      onAuth();
-    } else {
-      setError('Incorrect password. Please try again.');
-      setPassword('');
+    setError('');
+    setLoading(true);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (signInError) {
+        setError(signInError.message || 'Invalid email or password. Please try again.');
+        setPassword('');
+      }
+      // On success, onAuthStateChange in AdminPage will fire automatically
+    } catch {
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -234,20 +242,52 @@ const AuthGate: React.FC<{ onAuth: () => void }> = ({ onAuth }) => {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="admin-password">Password</Label>
-              <Input
-                id="admin-password"
-                type="password"
-                placeholder="Enter admin password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoFocus
-                autoComplete="current-password"
-              />
+              <Label htmlFor="admin-email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="admin-email"
+                  type="email"
+                  placeholder="admin@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoFocus
+                  autoComplete="username"
+                  required
+                  disabled={loading}
+                  className="pl-9"
+                />
+              </div>
             </div>
-            <Button type="submit" className="w-full" id="admin-login-btn">
-              <ShieldCheck className="h-4 w-4" />
-              Sign In
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="admin-password">Password</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="admin-password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                  disabled={loading}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <Button type="submit" className="w-full" id="admin-login-btn" disabled={loading || !email || !password}>
+              {loading ? (
+                <>
+                  <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-4 w-4" />
+                  Sign In
+                </>
+              )}
             </Button>
           </form>
         </CardContent>
@@ -309,25 +349,34 @@ const AdminPanel: React.FC = () => {
   }, [selectedRepoId]);
 
   const uploadWithProgress = (path: string, uploadFile: File, onProgress: (value: number) => void) => {
-    const attempt = (retryCount: number): Promise<void> => new Promise((resolve, reject) => {
-      const request = new XMLHttpRequest();
-      request.open('POST', `${supabaseUrl}/storage/v1/object/updates/${path}`);
-      request.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string);
-      request.setRequestHeader('Authorization', `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string}`);
-      request.setRequestHeader('x-upsert', 'false');
-      request.upload.onprogress = (event) => {
-        if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 70));
-      };
-      request.onload = () => {
-        if (request.status >= 200 && request.status < 300) resolve();
-        else reject(new Error(request.responseText || `Storage upload failed (${request.status})`));
-      };
-      request.onerror = () => {
-        if (retryCount < 3) window.setTimeout(() => { void attempt(retryCount + 1).then(resolve).catch(reject); }, 1000 * (retryCount + 1));
-        else reject(new Error('Network connection lost. Upload could not be completed after 3 retries.'));
-      };
-      request.send(uploadFile);
-    });
+    const attempt = async (retryCount: number): Promise<void> => {
+      // Get the current session access token — this is the real JWT that proves
+      // the user is authenticated. Using the anon/publishable key here would
+      // bypass Storage RLS policies, so we MUST use the user's access_token.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error('Not authenticated — please sign in again.');
+
+      return new Promise((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open('POST', `${supabaseUrl}/storage/v1/object/updates/${path}`);
+        request.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string);
+        request.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+        request.setRequestHeader('x-upsert', 'false');
+        request.upload.onprogress = (event) => {
+          if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 70));
+        };
+        request.onload = () => {
+          if (request.status >= 200 && request.status < 300) resolve();
+          else reject(new Error(request.responseText || `Storage upload failed (${request.status})`));
+        };
+        request.onerror = () => {
+          if (retryCount < 3) window.setTimeout(() => { void attempt(retryCount + 1).then(resolve).catch(reject); }, 1000 * (retryCount + 1));
+          else reject(new Error('Network connection lost. Upload could not be completed after 3 retries.'));
+        };
+        request.send(uploadFile);
+      });
+    };
     return attempt(0);
   };
 
@@ -503,9 +552,9 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleSignOut = () => {
-    sessionStorage.removeItem('ap_cloud_auth');
-    window.location.reload();
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    // onAuthStateChange in AdminPage will handle the redirect to AuthGate
   };
 
   return (
@@ -821,9 +870,33 @@ const AdminPanel: React.FC = () => {
 
 // ─── Main Export ──────────────────────────────────────────────────────────────
 const AdminPage: React.FC = () => {
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('ap_cloud_auth') === '1');
+  // null = still loading session, Session object = logged in, false = not logged in
+  const [session, setSession] = useState<Session | null | false>(null);
 
-  if (!authed) return <AuthGate onAuth={() => setAuthed(true)} />;
+  useEffect(() => {
+    // Check for existing session on mount (persisted in localStorage by Supabase)
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session ?? false);
+    });
+
+    // Listen for auth state changes (login / logout / token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession ?? false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Still resolving session — show nothing to avoid Login flash
+  if (session === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <span className="spinner" style={{ width: 36, height: 36 }} />
+      </div>
+    );
+  }
+
+  if (!session) return <AuthGate />;
   return <AdminPanel />;
 };
 

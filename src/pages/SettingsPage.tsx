@@ -8,8 +8,10 @@ import { supabase } from '../supabaseClient';
 import {
   ArrowLeft, Settings, Globe, Lock, Save, Trash2,
   AlertTriangle, Check, Loader2, AlertCircle, Tag, Code,
-  Link as LinkIcon,
+  Link as LinkIcon, ShieldAlert
 } from 'lucide-react';
+import { useAdmin } from '../hooks/useAdmin';
+import { cn } from '@/lib/utils';
 
 const SettingsPage: React.FC = () => {
   const { owner, repoName } = useParams();
@@ -18,6 +20,7 @@ const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
 
   const { repoInfo, loadRepo, setRepoInfo } = useRepo();
+  const { isAdmin } = useAdmin();
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [name, setName] = useState('');
@@ -53,6 +56,12 @@ const SettingsPage: React.FC = () => {
     })();
   }, [resolvedRepo]);
 
+
+
+  const trimmedName = name.trim();
+  const isNameValid = /^[a-zA-Z0-9_.-]+$/.test(trimmedName);
+  const nameHasSpace = name.includes(' ');
+
   // ── Save handler ────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!repoInfo) return;
@@ -60,14 +69,13 @@ const SettingsPage: React.FC = () => {
     setSaveError(null);
     setSaveSuccess(false);
 
-    const trimmedName = name.trim();
     if (!trimmedName) {
       setSaveError('Repository name cannot be empty.');
       setSaving(false);
       return;
     }
-    if (!/^[a-zA-Z0-9_.-]+$/.test(trimmedName)) {
-      setSaveError('Name may only contain letters, numbers, hyphens, underscores, and dots.');
+    if (!isNameValid) {
+      setSaveError('Name may only contain letters, numbers, hyphens, underscores, and dots. (No spaces allowed)');
       setSaving(false);
       return;
     }
@@ -200,6 +208,15 @@ const SettingsPage: React.FC = () => {
               </h2>
             </div>
             <div className="p-6 space-y-5">
+              {!isAdmin && (
+                <div className="mb-2 rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-sm flex items-start gap-2">
+                  <ShieldAlert className="h-4 w-4 text-blue-500 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-blue-600 dark:text-blue-400">Read-Only Mode</p>
+                    <p className="text-muted-foreground mt-0.5">You can view these settings, but admin login is required to make changes.</p>
+                  </div>
+                </div>
+              )}
 
               {/* Name */}
               <div>
@@ -211,14 +228,24 @@ const SettingsPage: React.FC = () => {
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  className="w-full rounded-lg border border-border/60 bg-muted/30 px-3.5 py-2.5 text-sm font-mono
-                    focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 transition-all"
+                  disabled={!isAdmin}
+                  className={cn("w-full rounded-lg border bg-muted/30 px-3.5 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 transition-all disabled:opacity-50",
+                    nameHasSpace || (name && !isNameValid) 
+                      ? "border-red-500/60 focus:ring-red-500/40 focus:border-red-500/60" 
+                      : "border-border/60 focus:ring-blue-500/40 focus:border-blue-500/60"
+                  )}
                   placeholder="repository-name"
                   maxLength={100}
                 />
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  Only letters, numbers, hyphens, underscores and dots.
-                </p>
+                {nameHasSpace ? (
+                  <p className="mt-1.5 text-xs text-red-500 font-medium">
+                    Spaces are not allowed in repository names. Use hyphens (-) or underscores (_) instead.
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Only letters, numbers, hyphens, underscores and dots. (No spaces allowed)
+                  </p>
+                )}
               </div>
 
               {/* Description */}
@@ -230,9 +257,10 @@ const SettingsPage: React.FC = () => {
                   id="repo-desc"
                   value={description}
                   onChange={e => setDescription(e.target.value)}
+                  disabled={!isAdmin}
                   rows={3}
                   className="w-full rounded-lg border border-border/60 bg-muted/30 px-3.5 py-2.5 text-sm resize-none
-                    focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 transition-all"
+                    focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/60 transition-all disabled:opacity-50"
                   placeholder="A short description of this repository…"
                   maxLength={256}
                 />
@@ -246,8 +274,9 @@ const SettingsPage: React.FC = () => {
                     <button
                       key={v}
                       type="button"
-                      onClick={() => setVisibility(v)}
-                      className={`flex items-start gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all w-full
+                      disabled={!isAdmin}
+                      onClick={() => isAdmin && setVisibility(v)}
+                      className={`flex items-start gap-3 rounded-xl border p-3.5 sm:p-4 text-left transition-all w-full disabled:opacity-70
                         ${visibility === v
                           ? v === 'public'
                             ? 'border-blue-500/60 bg-blue-500/10 ring-1 ring-blue-500/30'
@@ -289,27 +318,30 @@ const SettingsPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex justify-end pt-1">
-                <Button
-                  id="save-settings-btn"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="h-9 gap-2 bg-green-600 hover:bg-green-700 text-white"
-                >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Save changes
-                </Button>
-              </div>
+              {isAdmin && (
+                <div className="flex justify-end pt-1">
+                  <Button
+                    id="save-settings-btn"
+                    onClick={handleSave}
+                    disabled={saving || !isNameValid || nameHasSpace}
+                    className="h-9 gap-2 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save changes
+                  </Button>
+                </div>
+              )}
             </div>
           </section>
 
           {/* ── Danger Zone ──────────────────────────────────────────────── */}
-          <section className="rounded-xl border border-red-500/30 bg-card overflow-hidden shadow-sm">
-            <div className="bg-red-500/8 px-6 py-4 border-b border-red-500/20">
-              <h2 className="text-base font-semibold text-red-400 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" /> Danger Zone
-              </h2>
-            </div>
+          {isAdmin && (
+            <section className="rounded-xl border border-red-500/30 bg-card overflow-hidden shadow-sm">
+              <div className="bg-red-500/8 px-6 py-4 border-b border-red-500/20">
+                <h2 className="text-base font-semibold text-red-400 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" /> Danger Zone
+                </h2>
+              </div>
             <div className="p-6">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
@@ -376,6 +408,7 @@ const SettingsPage: React.FC = () => {
               )}
             </div>
           </section>
+          )}
 
         </div>
       </main>

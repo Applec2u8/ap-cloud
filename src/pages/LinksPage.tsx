@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   ArrowLeft, Tag, Settings, Link as LinkIcon, Loader2, Code,
 } from 'lucide-react';
+import { useAdmin } from '../hooks/useAdmin';
 
 const LinksPage: React.FC = () => {
   const { owner, repoName } = useParams();
@@ -16,6 +17,7 @@ const LinksPage: React.FC = () => {
   const resolvedRepo = repoName ?? 'repo';
 
   const { repoInfo, loadRepo } = useRepo();
+  const { isAdmin } = useAdmin();
 
   // Load repo into context if not already present
   useEffect(() => {
@@ -118,6 +120,7 @@ const LinksPage: React.FC = () => {
             <LinkAliasesManager
               repoId={repoInfo.id}
               edgeFunctionUrl={edgeFunctionUrl}
+              isAdmin={isAdmin}
             />
           )}
 

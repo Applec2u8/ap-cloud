@@ -13,8 +13,9 @@ import {
   ArrowLeft, Settings, Tag, CloudUpload, Package,
   Loader2, CheckCircle2, AlertTriangle,
   Trash2, ExternalLink, Copy, Check, Star, ChevronDown,
-  Zap, Link as LinkIcon, Globe, Lock, Code, Plus, Edit2
+  Zap, Link as LinkIcon, Globe, Lock, Code, Plus, Edit2, ShieldAlert
 } from 'lucide-react';
+import { useAdmin } from '../hooks/useAdmin';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatSize = (bytes: number) => {
@@ -80,11 +81,12 @@ interface RepoReleaseCardProps {
   baseUrl: string;
   edgeFunctionUrl: string;
   downloadCount?: number;
+  isAdmin: boolean;
 }
 
 const RepoReleaseCard: React.FC<RepoReleaseCardProps> = ({
   release, onDelete, onLatestChange, onVisibilityChange, onUpdate,
-  latestUpdating, visibilityUpdating, baseUrl, edgeFunctionUrl, downloadCount = 0
+  latestUpdating, visibilityUpdating, baseUrl, edgeFunctionUrl, downloadCount = 0, isAdmin
 }) => {
   const [deleting, setDeleting] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -204,15 +206,17 @@ const RepoReleaseCard: React.FC<RepoReleaseCardProps> = ({
             >
               <ChevronDown className={cn('h-4 w-4 transition-transform duration-200', expanded && 'rotate-180')} />
             </button>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleting}
-              title="Delete release"
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-400/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition disabled:opacity-50"
-            >
-              {deleting ? <span className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} /> : <Trash2 className="h-3.5 w-3.5" />}
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                title="Delete release"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-400/30 bg-red-500/10 text-red-500 hover:bg-red-500/20 transition disabled:opacity-50"
+              >
+                {deleting ? <span className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} /> : <Trash2 className="h-3.5 w-3.5" />}
+              </button>
+            )}
           </div>
         </div>
 
@@ -222,53 +226,57 @@ const RepoReleaseCard: React.FC<RepoReleaseCardProps> = ({
           onClick={e => e.stopPropagation()}
         >
           <div className="flex items-center gap-2 flex-wrap flex-1 sm:flex-initial">
-            {/* Latest */}
-            <button
-              type="button"
-              onClick={() => void onLatestChange(release)}
-              disabled={latestUpdating || release.is_latest}
-              className={cn(
-                'h-7.5 rounded-lg border px-3 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-70 flex items-center gap-1.5 whitespace-nowrap',
-                release.is_latest
-                  ? 'border-amber-400/40 bg-amber-500/15 text-amber-700 dark:text-amber-400 cursor-default'
-                  : 'border-border/60 bg-muted/30 text-foreground hover:bg-muted hover:border-blue-500/30 dark:hover:bg-muted/60'
-              )}
-            >
-              {latestUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Star className={cn("h-3 w-3", release.is_latest && "fill-amber-400 text-amber-400")} />}
-              {release.is_latest ? 'Latest' : 'Set Latest'}
-            </button>
+            {isAdmin && (
+              <>
+                {/* Latest */}
+                <button
+                  type="button"
+                  onClick={() => void onLatestChange(release)}
+                  disabled={latestUpdating || release.is_latest}
+                  className={cn(
+                    'h-7.5 rounded-lg border px-3 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-70 flex items-center gap-1.5 whitespace-nowrap',
+                    release.is_latest
+                      ? 'border-amber-400/40 bg-amber-500/15 text-amber-700 dark:text-amber-400 cursor-default'
+                      : 'border-border/60 bg-muted/30 text-foreground hover:bg-muted hover:border-blue-500/30 dark:hover:bg-muted/60'
+                  )}
+                >
+                  {latestUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Star className={cn("h-3 w-3", release.is_latest && "fill-amber-400 text-amber-400")} />}
+                  {release.is_latest ? 'Latest' : 'Set Latest'}
+                </button>
 
-            {/* Visibility */}
-            <button
-              type="button"
-              onClick={() => void onVisibilityChange(release)}
-              disabled={visibilityUpdating}
-              className={cn(
-                'h-7.5 rounded-lg border px-3 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-70 flex items-center gap-1.5 whitespace-nowrap',
-                release.is_public
-                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-400'
-                  : 'border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:text-rose-400'
-              )}
-            >
-              {visibilityUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : release.is_public ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-              {release.is_public ? 'Public' : 'Private'}
-            </button>
+                {/* Visibility */}
+                <button
+                  type="button"
+                  onClick={() => void onVisibilityChange(release)}
+                  disabled={visibilityUpdating}
+                  className={cn(
+                    'h-7.5 rounded-lg border px-3 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-70 flex items-center gap-1.5 whitespace-nowrap',
+                    release.is_public
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-400'
+                      : 'border-rose-500/30 bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:text-rose-400'
+                  )}
+                >
+                  {visibilityUpdating ? <Loader2 className="h-3 w-3 animate-spin" /> : release.is_public ? <Globe className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                  {release.is_public ? 'Public' : 'Private'}
+                </button>
 
-            {/* Edit */}
-            {onUpdate && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing); }}
-                className={cn(
-                  'h-7.5 inline-flex items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition whitespace-nowrap',
-                  isEditing 
-                    ? 'border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-300' 
-                    : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground'
+                {/* Edit */}
+                {onUpdate && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setIsEditing(!isEditing); }}
+                    className={cn(
+                      'h-7.5 inline-flex items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition whitespace-nowrap',
+                      isEditing 
+                        ? 'border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-300' 
+                        : 'border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground'
+                    )}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                    {isEditing ? 'Cancel' : 'Edit'}
+                  </button>
                 )}
-              >
-                <Edit2 className="h-3 w-3" />
-                {isEditing ? 'Cancel' : 'Edit'}
-              </button>
+              </>
             )}
 
             {/* View */}
@@ -384,6 +392,7 @@ const ReleasesPage: React.FC = () => {
   const resolvedRepo = repoName ?? 'repo';
 
   const { repoInfo, loadRepo } = useRepo();
+  const { isAdmin } = useAdmin();
 
   // Form state
   const [file, setFile] = useState<File | null>(null);
@@ -670,33 +679,36 @@ const ReleasesPage: React.FC = () => {
               </p>
             </div>
             {/* Mobile toggle button: + New Release */}
-            <div className="lg:hidden self-start sm:self-auto">
-              <Button
-                type="button"
-                size="sm"
-                variant={showMobileUpload ? "secondary" : "default"}
-                onClick={() => setShowMobileUpload(p => !p)}
-                className="gap-1.5 rounded-full text-xs font-semibold h-8.5 px-4 shadow-sm"
-              >
-                {showMobileUpload ? (
-                  <>
-                    <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform" /> Hide Form
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-3.5 w-3.5" /> New Release
-                  </>
-                )}
-              </Button>
-            </div>
+            {isAdmin && (
+              <div className="lg:hidden self-start sm:self-auto">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={showMobileUpload ? "secondary" : "default"}
+                  onClick={() => setShowMobileUpload(p => !p)}
+                  className="gap-1.5 rounded-full text-xs font-semibold h-8.5 px-4 shadow-sm"
+                >
+                  {showMobileUpload ? (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5 rotate-180 transition-transform" /> Hide Form
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3.5 w-3.5" /> New Release
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.45fr] items-start">
+          <div className={cn("grid grid-cols-1 gap-6 items-start", isAdmin ? "lg:grid-cols-[1fr_1.45fr]" : "")}>
             {/* ── Upload Form ── */}
-            <div className={cn(
-              "transition-all duration-300",
-              showMobileUpload ? "block mb-2 animate-fade-in" : "hidden lg:block"
-            )}>
+            {isAdmin && (
+              <div className={cn(
+                "transition-all duration-300",
+                showMobileUpload ? "block mb-2 animate-fade-in" : "hidden lg:block"
+              )}>
               <div className="mb-3 flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Upload New Release</span>
                 <div className="flex-1 h-px bg-border" />
@@ -813,10 +825,20 @@ const ReleasesPage: React.FC = () => {
                   </Button>
                 </form>
               </div>
-            </div>
+              </div>
+            )}
 
             {/* ── Release List ── */}
-            <div>
+            <div className="flex flex-col gap-4">
+              {!isAdmin && (
+                <div className="mb-2 rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-sm flex items-start gap-2">
+                  <ShieldAlert className="h-4 w-4 text-blue-500 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-blue-600 dark:text-blue-400">Read-Only Mode</p>
+                    <p className="text-muted-foreground mt-0.5">You are viewing public releases. Admin login is required to upload or manage releases.</p>
+                  </div>
+                </div>
+              )}
               <div className="mb-3 flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   Repository Releases
@@ -853,6 +875,7 @@ const ReleasesPage: React.FC = () => {
                       baseUrl={baseUrl}
                       edgeFunctionUrl={edgeFunctionUrl}
                       downloadCount={downloadCounts[r.version] || 0}
+                      isAdmin={isAdmin}
                     />
                   ))}
                 </div>

@@ -54,10 +54,18 @@ const RepositoriesTab: React.FC = () => {
     fetchRepositories();
   }, [fetchRepositories]);
 
+  const trimmedName = name.trim();
+  const isNameValid = /^[a-zA-Z0-9_.-]+$/.test(trimmedName);
+  const nameHasSpace = name.includes(' ');
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    if (!trimmedName) {
       showAlert('error', 'Repository name is required.');
+      return;
+    }
+    if (!isNameValid) {
+      showAlert('error', 'Repository name is invalid.');
       return;
     }
 
@@ -156,7 +164,17 @@ const RepositoriesTab: React.FC = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     disabled={creating}
+                    className={cn("font-mono focus:outline-none focus:ring-2 transition-all",
+                      nameHasSpace || (name && !isNameValid) 
+                        ? "border-red-500/60 focus:ring-red-500/40 focus:border-red-500/60" 
+                        : "border-border/60 focus:ring-blue-500/40 focus:border-blue-500/60"
+                    )}
                   />
+                  {nameHasSpace ? (
+                    <p className="text-xs text-red-500 font-medium">Spaces are not allowed. Use hyphens (-) or underscores (_) instead.</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Only letters, numbers, hyphens, underscores and dots. (No spaces allowed)</p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -224,7 +242,7 @@ const RepositoriesTab: React.FC = () => {
                   </div>
                 </div>
 
-                <Button type="submit" disabled={creating || !name.trim()} className="mt-2 w-full">
+                <Button type="submit" disabled={creating || !trimmedName || !isNameValid || nameHasSpace} className="mt-2 w-full disabled:opacity-50 disabled:cursor-not-allowed">
                   {creating ? (
                     <>
                       <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />

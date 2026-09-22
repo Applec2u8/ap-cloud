@@ -19,6 +19,7 @@ import {
   ArrowLeft, ChevronDown, GitCommit, History, Download,
   Loader2, FolderOpen, AlertCircle, RefreshCw, Settings, Tag, LinkIcon
 } from 'lucide-react';
+import { useAdmin } from '../hooks/useAdmin';
 
 function timeAgo(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -40,6 +41,7 @@ const RepositoryPage: React.FC = () => {
     loadingRepo, loadingFiles, repoError, filesError,
     loadRepo, loadCommits, loadFiles,
   } = useRepo();
+  const { isAdmin } = useAdmin();
 
   const [showQuickSetup, setShowQuickSetup] = useState(false);
   const [activeTab, setActiveTab] = useState<'files' | 'history'>('files');
@@ -202,17 +204,19 @@ const RepositoryPage: React.FC = () => {
                 <span className="font-semibold text-foreground">{files.length}</span> files
               </div>
             </div>
-            <Button
-              id="toggle-quick-setup-btn"
-              variant="default"
-              size="sm"
-              className={`h-8.5 gap-2 transition-all self-start sm:self-auto text-xs sm:text-sm font-semibold ${showQuickSetup ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-              onClick={() => setShowQuickSetup(p => !p)}
-            >
-              <Code className="h-3.5 w-3.5" />
-              {showQuickSetup ? 'Hide Setup' : 'Code'}
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showQuickSetup ? 'rotate-180' : ''}`} />
-            </Button>
+            {isAdmin && (
+              <Button
+                id="toggle-quick-setup-btn"
+                variant="default"
+                size="sm"
+                className={`h-8.5 gap-2 transition-all self-start sm:self-auto text-xs sm:text-sm font-semibold ${showQuickSetup ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                onClick={() => setShowQuickSetup(p => !p)}
+              >
+                <Code className="h-3.5 w-3.5" />
+                {showQuickSetup ? 'Hide Setup' : 'Code'}
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showQuickSetup ? 'rotate-180' : ''}`} />
+              </Button>
+            )}
           </div>
 
           {/* Quick Setup + Upload Panel */}
@@ -296,10 +300,12 @@ const RepositoryPage: React.FC = () => {
                         ) : files.length === 0 ? (
                           <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
                             <FolderOpen className="h-10 w-10" />
-                            <p className="text-sm">No files yet. Push code using the CLI or upload files manually.</p>
-                            <Button variant="outline" size="sm" onClick={() => setShowQuickSetup(true)}>
-                              <Code className="h-3.5 w-3.5 mr-2" /> Get Started
-                            </Button>
+                            <p className="text-sm">No files yet. {isAdmin ? 'Push code using the CLI or upload files manually.' : 'Check back later.'}</p>
+                            {isAdmin && (
+                              <Button variant="outline" size="sm" onClick={() => setShowQuickSetup(true)}>
+                                <Code className="h-3.5 w-3.5 mr-2" /> Get Started
+                              </Button>
+                            )}
                           </div>
                         ) : (
                           <>
