@@ -8,9 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
-  ArrowLeft, Copy, Check, Loader2, AlertCircle, Download, FileText, Tag, Settings, Link as LinkIcon,
+  ArrowLeft, Copy, Check, Loader2, AlertCircle, Download, FileText, Tag, Settings, Link as LinkIcon, Lock,
 } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { useAdmin } from '../hooks/useAdmin';
+import { useFileVisibility, getEffectiveVisibility } from '../hooks/useFileVisibility';
 
 function getLanguage(filename: string): string {
   const ext = filename.split('.').pop()?.toLowerCase() ?? '';
@@ -43,11 +44,13 @@ const BlobPage: React.FC = () => {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
+  const { isAdmin } = useAdmin();
   const {
-    repoInfo, commits, files, activeCommit,
+    repoInfo, commits, files,
     loadingRepo, loadingFiles, repoError,
     loadRepo, loadCommits, loadFiles,
   } = useRepo();
+  const { visibilityMap } = useFileVisibility(repoInfo?.id);
 
   // Load data if needed
   useEffect(() => {
@@ -93,12 +96,45 @@ const BlobPage: React.FC = () => {
     }
   };
 
-  const handleDownload = async () => {
-    if (!repoInfo || !activeCommit) return;
-    const path = `${repoInfo.id}/${activeCommit.commit_hash}/source.zip`;
-    const { data } = await supabase.storage.from('repo-storage').createSignedUrl(path, 60);
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+  const handleDownload = () => {
+    if (!file) return;
+    const blob = new Blob([file.content as unknown as BlobPart]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   };
+
+  // ── Security guard: block private file access for non-admins ──────────
+  const isPrivateFile = !getEffectiveVisibility(filePath, visibilityMap);
+  if (!isAdmin && isPrivateFile && filePath) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground p-8">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10 border border-orange-500/20">
+            <Lock className="h-8 w-8 text-orange-400" />
+          </div>
+          <h1 className="text-xl font-bold">Access Restricted</h1>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            <span className="font-mono text-foreground/80 bg-muted px-1.5 py-0.5 rounded text-xs">{filePath}</span>
+            {' '}is marked as <span className="text-orange-400 font-semibold">Private</span>.
+            You don't have permission to view this file's content.
+          </p>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-2 flex items-center gap-2 rounded-lg border border-border/60 bg-muted/40 px-4 py-2 text-sm font-medium hover:bg-muted/70 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Go back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -220,7 +256,7 @@ const BlobPage: React.FC = () => {
                     onClick={handleDownload}
                     className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium bg-muted/60 text-muted-foreground hover:text-foreground border border-border/60 hover:bg-muted transition-all"
                   >
-                    <Download className="h-3.5 w-3.5" /> Download ZIP
+                    <Download className="h-3.5 w-3.5" /> Download
                   </button>
                 </div>
               </div>

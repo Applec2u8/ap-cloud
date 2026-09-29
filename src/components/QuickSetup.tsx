@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Terminal, Copy, Check, GitBranch, Link } from 'lucide-react';
+import { Terminal, Copy, Check, GitBranch, Link, GitCommit, Download } from 'lucide-react';
+import { useRepo } from '../context/RepoContext';
 
 interface CopyButtonProps {
   text: string;
@@ -18,11 +19,10 @@ const CopyButton: React.FC<CopyButtonProps> = ({ text, id }) => {
       id={id}
       onClick={handleCopy}
       title="Copy to clipboard"
-      className={`flex items-center justify-center rounded-md p-1.5 transition-all ${
-        copied
-          ? 'text-green-400 bg-green-400/10'
-          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-      }`}
+      className={`flex items-center justify-center rounded-md p-1.5 transition-all ${copied
+        ? 'text-green-400 bg-green-400/10'
+        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+        }`}
     >
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
     </button>
@@ -47,13 +47,22 @@ interface QuickSetupProps {
 }
 
 const QuickSetup: React.FC<QuickSetupProps> = ({ owner, repoName }) => {
+  const { activeCommit } = useRepo();
   const repoUrl = `${window.location.origin}/repo/${owner}/${repoName}`;
+  const downloadUrl = `${window.location.origin}/repo/${owner}/${repoName}/download`;
   const [urlCopied, setUrlCopied] = useState(false);
+  const [downloadUrlCopied, setDownloadUrlCopied] = useState(false);
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(repoUrl);
     setUrlCopied(true);
     setTimeout(() => setUrlCopied(false), 2000);
+  };
+
+  const handleCopyDownloadUrl = () => {
+    navigator.clipboard.writeText(downloadUrl);
+    setDownloadUrlCopied(true);
+    setTimeout(() => setDownloadUrlCopied(false), 2000);
   };
 
   const commands = {
@@ -78,16 +87,15 @@ const QuickSetup: React.FC<QuickSetupProps> = ({ owner, repoName }) => {
             <Link className="h-3.5 w-3.5" />
             Repository Endpoint URL
           </p>
-          <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-[#0d1117] px-4 py-3">
+          <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-[#0d1117] px-4 py-3 mb-4">
             <span className="flex-1 font-mono text-sm text-blue-400 select-all truncate">{repoUrl}</span>
             <button
               id="copy-repo-url-btn"
               onClick={handleCopyUrl}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                urlCopied
-                  ? 'bg-green-500/15 text-green-400 border border-green-500/30'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60'
-              }`}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${urlCopied
+                ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60'
+                }`}
             >
               {urlCopied ? (
                 <><Check className="h-3.5 w-3.5" /> Copied!</>
@@ -96,6 +104,57 @@ const QuickSetup: React.FC<QuickSetupProps> = ({ owner, repoName }) => {
               )}
             </button>
           </div>
+
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+            <Link className="h-3.5 w-3.5" />
+            Direct Download URL
+          </p>
+          <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-[#0d1117] px-4 py-3">
+            <span className="flex-1 font-mono text-sm text-green-400 select-all truncate">{downloadUrl}</span>
+            <button
+              id="copy-download-url-btn"
+              onClick={handleCopyDownloadUrl}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${downloadUrlCopied
+                ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60'
+                }`}
+            >
+              {downloadUrlCopied ? (
+                <><Check className="h-3.5 w-3.5" /> Copied!</>
+              ) : (
+                <><Copy className="h-3.5 w-3.5" /> Copy</>
+              )}
+            </button>
+          </div>
+
+          {/* Latest Commit Info */}
+          {activeCommit && (
+            <div className="mt-4 pt-4 border-t border-border/40">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                <GitCommit className="h-3.5 w-3.5" />
+                Latest Commit
+              </p>
+              <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-[#0d1117] px-4 py-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-mono text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                      {activeCommit.commit_hash.substring(0, 7)}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground truncate" title={activeCommit.message}>
+                    {activeCommit.message}
+                  </p>
+                </div>
+                <button
+                  onClick={() => window.open(downloadUrl, '_blank')}
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium bg-green-600/10 text-green-500 hover:bg-green-600/20 hover:text-green-400 border border-green-500/20 transition-all flex-shrink-0"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Download
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Divider */}
@@ -105,61 +164,74 @@ const QuickSetup: React.FC<QuickSetupProps> = ({ owner, repoName }) => {
           <div className="flex-1 border-t border-border/40" />
         </div>
 
-        {/* Setup Options Grid */}
-        <div className="grid gap-5 sm:grid-cols-2">
-          {/* Initialize a new repo */}
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center gap-2">
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold">1</div>
-              <p className="text-sm font-semibold">Initialize a new repository</p>
-            </div>
-            <p className="text-xs text-muted-foreground ml-7">
-              Run this in your project directory to connect it to this repository.
-            </p>
-            <div className="ml-7">
-              <CommandBlock id="cmd-init" command={commands.init} />
+        {/* CLI Setup (Disabled/Under Development) */}
+        <div className="relative">
+          {/* Overlay */}
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-card/60 backdrop-blur-[1px] rounded-lg">
+            <div className="bg-background/90 border border-border/60 text-foreground px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+              ກຳລັງພັດທະນາ. ຍັງບໍ່ສາມາດໃຊ້ໄດ້ໃນເວລານີ້.
             </div>
           </div>
 
-          {/* Link an existing repo */}
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center gap-2">
-              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10 text-purple-400 text-[10px] font-bold">↗</div>
-              <p className="text-sm font-semibold">Link an existing project</p>
-            </div>
-            <p className="text-xs text-muted-foreground ml-7">
-              Already have a project? Link it to this repository directly.
-            </p>
-            <div className="ml-7">
-              <CommandBlock id="cmd-link" command={commands.link} />
-            </div>
-          </div>
-        </div>
+          <div className="opacity-30 pointer-events-none">
 
-        {/* Push step */}
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500/10 text-green-400 text-[10px] font-bold">2</div>
-            <p className="text-sm font-semibold">Push your source code</p>
-          </div>
-          <p className="text-xs text-muted-foreground ml-7">
-            Uploads your project (automatically ignoring <code className="bg-muted px-1 py-0.5 rounded text-foreground">node_modules</code>, <code className="bg-muted px-1 py-0.5 rounded text-foreground">dist</code>, and <code className="bg-muted px-1 py-0.5 rounded text-foreground">.git</code> directories).
-          </p>
-          <div className="ml-7">
-            <CommandBlock id="cmd-push" command={commands.push} />
-          </div>
-        </div>
+            {/* Setup Options Grid */}
+            <div className="grid gap-5 sm:grid-cols-2">
+              {/* Initialize a new repo */}
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-bold">1</div>
+                  <p className="text-sm font-semibold">Initialize a new repository</p>
+                </div>
+                <p className="text-xs text-muted-foreground ml-7">
+                  Run this in your project directory to connect it to this repository.
+                </p>
+                <div className="ml-7">
+                  <CommandBlock id="cmd-init" command={commands.init} />
+                </div>
+              </div>
 
-        {/* Info footer */}
-        <div className="rounded-lg border border-blue-500/15 bg-blue-500/5 px-4 py-3 flex gap-3 items-start">
-          <GitBranch className="h-4 w-4 text-blue-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Don't have the CLI installed?{' '}
-            <code className="text-foreground bg-muted px-1.5 py-0.5 rounded font-mono">npx ap-cloud</code>{' '}
-            will automatically download and run the latest version.
-            You can also install it globally with{' '}
-            <code className="text-foreground bg-muted px-1.5 py-0.5 rounded font-mono">npm install -g ap-cloud</code>.
-          </p>
+              {/* Link an existing repo */}
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10 text-purple-400 text-[10px] font-bold">↗</div>
+                  <p className="text-sm font-semibold">Link an existing project</p>
+                </div>
+                <p className="text-xs text-muted-foreground ml-7">
+                  Already have a project? Link it to this repository directly.
+                </p>
+                <div className="ml-7">
+                  <CommandBlock id="cmd-link" command={commands.link} />
+                </div>
+              </div>
+            </div>
+
+            {/* Push step */}
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center gap-2">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500/10 text-green-400 text-[10px] font-bold">2</div>
+                <p className="text-sm font-semibold">Push your source code</p>
+              </div>
+              <p className="text-xs text-muted-foreground ml-7">
+                Uploads your project (automatically ignoring <code className="bg-muted px-1 py-0.5 rounded text-foreground">node_modules</code>, <code className="bg-muted px-1 py-0.5 rounded text-foreground">dist</code>, and <code className="bg-muted px-1 py-0.5 rounded text-foreground">.git</code> directories).
+              </p>
+              <div className="ml-7">
+                <CommandBlock id="cmd-push" command={commands.push} />
+              </div>
+            </div>
+
+            {/* Info footer */}
+            <div className="rounded-lg border border-blue-500/15 bg-blue-500/5 px-4 py-3 flex gap-3 items-start mt-5">
+              <GitBranch className="h-4 w-4 text-blue-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Don't have the CLI installed?{' '}
+                <code className="text-foreground bg-muted px-1.5 py-0.5 rounded font-mono">npx ap-cloud</code>{' '}
+                will automatically download and run the latest version.
+                You can also install it globally with{' '}
+                <code className="text-foreground bg-muted px-1.5 py-0.5 rounded font-mono">npm install -g ap-cloud</code>.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

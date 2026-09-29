@@ -20,6 +20,8 @@ import {
   Loader2, FolderOpen, AlertCircle, RefreshCw, Settings, Tag, LinkIcon
 } from 'lucide-react';
 import { useAdmin } from '../hooks/useAdmin';
+import { useFileVisibility } from '../hooks/useFileVisibility';
+import { downloadFilteredZip } from '../lib/downloadFilteredZip';
 
 function timeAgo(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -42,6 +44,7 @@ const RepositoryPage: React.FC = () => {
     loadRepo, loadCommits, loadFiles,
   } = useRepo();
   const { isAdmin } = useAdmin();
+  const { visibilityMap, setVisibility } = useFileVisibility(repoInfo?.id);
 
   const [showQuickSetup, setShowQuickSetup] = useState(false);
   const [activeTab, setActiveTab] = useState<'files' | 'history'>('files');
@@ -113,9 +116,17 @@ const RepositoryPage: React.FC = () => {
       os: ua.os,
     }).then(undefined, console.error);
 
-    const path = `${repoInfo.id}/${commit.commit_hash}/source.zip`;
-    const { data } = await supabase.storage.from('repo-storage').createSignedUrl(path, 60);
-    if (data?.signedUrl) window.open(data.signedUrl, '_blank');
+    try {
+      await downloadFilteredZip(
+        repoInfo.id,
+        commit.commit_hash,
+        repoInfo.name,
+        visibilityMap,
+        isAdmin,
+      );
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
   };
 
   const handleUploadSuccess = async () => {
@@ -203,27 +214,39 @@ const RepositoryPage: React.FC = () => {
                 <FolderOpen className="h-3.5 w-3.5" />
                 <span className="font-semibold text-foreground">{files.length}</span> files
               </div>
+              
+              {/* Prominent Download Button */}
+              {activeCommit && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8.5 gap-1.5 border-green-500/30 text-green-400 hover:bg-green-500/10 hover:text-green-300 ml-2"
+                  onClick={() => handleDownloadCommit(activeCommit)}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Download Code</span>
+                  <span className="sm:hidden">Download</span>
+                </Button>
+              )}
             </div>
-            {isAdmin && (
-              <Button
-                id="toggle-quick-setup-btn"
-                variant="default"
-                size="sm"
-                className={`h-8.5 gap-2 transition-all self-start sm:self-auto text-xs sm:text-sm font-semibold ${showQuickSetup ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-                onClick={() => setShowQuickSetup(p => !p)}
-              >
-                <Code className="h-3.5 w-3.5" />
-                {showQuickSetup ? 'Hide Setup' : 'Code'}
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showQuickSetup ? 'rotate-180' : ''}`} />
-              </Button>
-            )}
+            <Button
+              id="toggle-quick-setup-btn"
+              variant="default"
+              size="sm"
+              className={`h-8.5 gap-2 transition-all self-start sm:self-auto text-xs sm:text-sm font-semibold ${showQuickSetup ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+              onClick={() => setShowQuickSetup(p => !p)}
+            >
+              <Code className="h-3.5 w-3.5" />
+              {showQuickSetup ? 'Hide Setup' : 'Code'}
+              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showQuickSetup ? 'rotate-180' : ''}`} />
+            </Button>
           </div>
 
           {/* Quick Setup + Upload Panel */}
           {showQuickSetup && (
             <div className="grid grid-cols-1 gap-6 items-start mb-6">
               <QuickSetup owner={resolvedOwner} repoName={resolvedRepo} />
-              <ManualUpload owner={resolvedOwner} repoName={resolvedRepo} onUploadSuccess={handleUploadSuccess} />
+              {isAdmin && <ManualUpload owner={resolvedOwner} repoName={resolvedRepo} onUploadSuccess={handleUploadSuccess} />}
             </div>
           )}
 
@@ -336,6 +359,9 @@ const RepositoryPage: React.FC = () => {
                               branch={branch}
                               basePath=""
                               currentPath=""
+                              isAdmin={isAdmin}
+                              visibilityMap={visibilityMap}
+                              onToggleVisibility={setVisibility}
                             />
                           </>
                         )}

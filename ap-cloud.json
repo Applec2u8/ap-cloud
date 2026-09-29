@@ -1,7 +1,6 @@
 {
     "ignore": [
         "*.log",
-        "*.env",
         "coverage/",
         "build/",
         "dist/",

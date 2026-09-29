@@ -12,6 +12,7 @@ import BlobPage from './pages/BlobPage';
 import SettingsPage from './pages/SettingsPage';
 import ReleasesPage from './pages/ReleasesPage';
 import LinksPage from './pages/LinksPage';
+import RepoDownloadPage from './pages/RepoDownloadPage';
 import { RepoProvider } from './context/RepoContext';
 
 const App: React.FC = () => {
@@ -50,6 +51,9 @@ const App: React.FC = () => {
 
                 {/* Links (aliases): /repo/:owner/:repoName/links */}
                 <Route path="links" element={<LinksPage />} />
+                
+                {/* Direct Download: /repo/:owner/:repoName/download */}
+                <Route path="download" element={<RepoDownloadPage />} />
               </Routes>
             </RepoProvider>
           }
