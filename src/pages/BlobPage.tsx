@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft, Copy, Check, Loader2, AlertCircle, Download, FileText, Tag, Settings, Link as LinkIcon, Lock,
 } from 'lucide-react';
@@ -272,22 +274,66 @@ const BlobPage: React.FC = () => {
                   <img src={imageUrl} alt={filename} className="max-w-full max-h-[70vh] object-contain rounded-lg" />
                 </div>
               ) : content !== null ? (
-                <SyntaxHighlighter
-                  language={lang}
-                  style={oneDark}
-                  showLineNumbers
-                  wrapLines
-                  customStyle={{
-                    margin: 0,
-                    borderRadius: 0,
-                    background: '#0d1117',
-                    fontSize: '13px',
-                    lineHeight: '1.6',
-                  }}
-                  lineNumberStyle={{ color: '#484f58', userSelect: 'none', minWidth: '3.5em' }}
-                >
-                  {content}
-                </SyntaxHighlighter>
+                lang === 'markdown' ? (
+                  <div style={{ padding: '2rem 2.5rem', maxWidth: '860px', fontSize: '15px', lineHeight: '1.75' }}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h1: ({ children }) => <h1 style={{ fontSize: '2rem', fontWeight: 700, lineHeight: 1.25, marginTop: 0, marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid hsl(var(--border))', letterSpacing: '-0.02em' }}>{children}</h1>,
+                        h2: ({ children }) => <h2 style={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.3, marginTop: '2rem', marginBottom: '0.75rem', paddingBottom: '0.35rem', borderBottom: '1px solid hsl(var(--border))', letterSpacing: '-0.01em' }}>{children}</h2>,
+                        h3: ({ children }) => <h3 style={{ fontSize: '1.2rem', fontWeight: 600, lineHeight: 1.4, marginTop: '1.5rem', marginBottom: '0.5rem' }}>{children}</h3>,
+                        h4: ({ children }) => <h4 style={{ fontSize: '1.05rem', fontWeight: 600, lineHeight: 1.4, marginTop: '1.25rem', marginBottom: '0.4rem' }}>{children}</h4>,
+                        h5: ({ children }) => <h5 style={{ fontSize: '0.95rem', fontWeight: 600, lineHeight: 1.4, marginTop: '1rem', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'hsl(var(--muted-foreground))' }}>{children}</h5>,
+                        h6: ({ children }) => <h6 style={{ fontSize: '0.875rem', fontWeight: 600, lineHeight: 1.4, marginTop: '0.75rem', marginBottom: '0.3rem', color: 'hsl(var(--muted-foreground))' }}>{children}</h6>,
+                        p: ({ children }) => <p style={{ marginTop: 0, marginBottom: '1rem' }}>{children}</p>,
+                        a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--primary))', textDecoration: 'underline', textUnderlineOffset: '3px' }}>{children}</a>,
+                        code: ({ className: cls, children, ...props }) => {
+                          const isInline = !cls;
+                          return isInline
+                            ? <code style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85em', background: 'hsl(var(--muted))', padding: '0.15em 0.4em', borderRadius: '4px', border: '1px solid hsl(var(--border))' }} {...props}>{children}</code>
+                            : <code className={cls} {...props}>{children}</code>;
+                        },
+                        pre: ({ children }) => <pre style={{ background: '#0d1117', border: '1px solid hsl(var(--border))', borderRadius: '8px', padding: '1rem 1.25rem', overflowX: 'auto', margin: '1rem 0', fontFamily: 'ui-monospace, monospace', fontSize: '13px', lineHeight: 1.65, color: '#e6edf3' }}>{children}</pre>,
+                        ul: ({ children }) => <ul style={{ listStyleType: 'disc', paddingLeft: '1.5rem', marginTop: 0, marginBottom: '1rem' }}>{children}</ul>,
+                        ol: ({ children }) => <ol style={{ listStyleType: 'decimal', paddingLeft: '1.5rem', marginTop: 0, marginBottom: '1rem' }}>{children}</ol>,
+                        li: ({ children }) => <li style={{ marginBottom: '0.35rem' }}>{children}</li>,
+                        blockquote: ({ children }) => <blockquote style={{ borderLeft: '4px solid hsl(var(--primary) / 0.5)', paddingLeft: '1.25rem', paddingTop: '0.5rem', paddingBottom: '0.5rem', margin: '1rem 0', background: 'hsl(var(--muted) / 0.5)', borderRadius: '0 6px 6px 0', color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>{children}</blockquote>,
+                        hr: () => <hr style={{ border: 'none', borderTop: '1px solid hsl(var(--border))', margin: '2rem 0' }} />,
+                        table: ({ children }) => <div style={{ overflowX: 'auto', margin: '1rem 0', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>{children}</table></div>,
+                        th: ({ children }) => <th style={{ background: 'hsl(var(--muted))', padding: '0.6rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', borderBottom: '2px solid hsl(var(--border))' }}>{children}</th>,
+                        td: ({ children }) => <td style={{ padding: '0.6rem 1rem', borderBottom: '1px solid hsl(var(--border) / 0.6)' }}>{children}</td>,
+                        strong: ({ children }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
+                        em: ({ children }) => <em style={{ fontStyle: 'italic' }}>{children}</em>,
+                      }}
+                    >
+                      {content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <SyntaxHighlighter
+                    language={lang}
+                    style={oneDark}
+                    showLineNumbers
+                    wrapLines
+                    customStyle={{
+                      margin: 0,
+                      borderRadius: 0,
+                      background: '#0d1117',
+                      fontSize: '13px',
+                      lineHeight: '1.6',
+                    }}
+                    lineNumberStyle={{
+                      color: '#484f58',
+                      userSelect: 'none',
+                      minWidth: '3.5em',
+                      borderRight: '1px solid rgba(255,255,255,0.08)',
+                      paddingRight: '1em',
+                      marginRight: '0.75em',
+                    }}
+                  >
+                    {content}
+                  </SyntaxHighlighter>
+                )
               ) : (
                 <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
                   Binary file — preview not available.

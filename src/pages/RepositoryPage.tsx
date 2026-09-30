@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import { parseUA } from '../lib/uaParser';
 import {
   GitBranch, Copy, Clock, CheckCircle2, Code, BookOpen,
   ArrowLeft, ChevronDown, GitCommit, History, Download,
-  Loader2, FolderOpen, AlertCircle, RefreshCw, Settings, Tag, LinkIcon
+  Loader2, FolderOpen, AlertCircle, RefreshCw, Settings, Tag, LinkIcon, FileText
 } from 'lucide-react';
 import { useAdmin } from '../hooks/useAdmin';
 import { useFileVisibility } from '../hooks/useFileVisibility';
@@ -49,6 +49,9 @@ const RepositoryPage: React.FC = () => {
   const [showQuickSetup, setShowQuickSetup] = useState(false);
   const [activeTab, setActiveTab] = useState<'files' | 'history'>('files');
   const [copied, setCopied] = useState(false);
+  const [expandedMdFiles, setExpandedMdFiles] = useState<Set<string>>(new Set(['readme.md']));
+  // Tracks which files have been mounted at least once (avoids re-rendering on every toggle)
+  const [mountedMdFiles, setMountedMdFiles] = useState<Set<string>>(new Set(['readme.md']));
 
   const branch = repoInfo?.default_branch ?? 'main';
   const repoUrl = `${window.location.origin}/repo/${resolvedOwner}/${resolvedRepo}`;
@@ -139,11 +142,66 @@ const RepositoryPage: React.FC = () => {
     }
   };
 
-  // README at root
-  const readmeContent = (() => {
-    const f = files.find(f => f.path.toLowerCase() === 'readme.md');
-    return f ? new TextDecoder().decode(f.content) : null;
-  })();
+  // All .md files sorted: README.md first, then others by path
+  const mdFiles = useMemo(() => files
+    .filter(f => f.path.toLowerCase().endsWith('.md'))
+    .sort((a, b) => {
+      const aIsReadme = a.path.toLowerCase() === 'readme.md';
+      const bIsReadme = b.path.toLowerCase() === 'readme.md';
+      if (aIsReadme) return -1;
+      if (bIsReadme) return 1;
+      return a.path.localeCompare(b.path);
+    })
+    .map(f => ({ path: f.path, content: new TextDecoder().decode(f.content) })),
+  [files]);
+
+  const toggleMdFile = (path: string) => {
+    const key = path.toLowerCase();
+    setExpandedMdFiles(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+        // Lazy mount: mark as mounted on first expand
+        setMountedMdFiles(m => new Set([...m, key]));
+      }
+      return next;
+    });
+  };
+
+  const isExpanded = (path: string) => expandedMdFiles.has(path.toLowerCase());
+  const isMounted = (path: string) => mountedMdFiles.has(path.toLowerCase());
+
+  // Memoized markdown component map — stable reference avoids ReactMarkdown re-renders
+  const mdComponents = useMemo(() => ({
+    h1: ({ children }: { children: React.ReactNode }) => <h1 style={{ fontSize: '2rem', fontWeight: 700, lineHeight: 1.25, marginTop: 0, marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '2px solid hsl(var(--border))', letterSpacing: '-0.02em' }}>{children}</h1>,
+    h2: ({ children }: { children: React.ReactNode }) => <h2 style={{ fontSize: '1.5rem', fontWeight: 700, lineHeight: 1.3, marginTop: '2rem', marginBottom: '0.75rem', paddingBottom: '0.35rem', borderBottom: '1px solid hsl(var(--border))', letterSpacing: '-0.01em' }}>{children}</h2>,
+    h3: ({ children }: { children: React.ReactNode }) => <h3 style={{ fontSize: '1.2rem', fontWeight: 600, lineHeight: 1.4, marginTop: '1.5rem', marginBottom: '0.5rem' }}>{children}</h3>,
+    h4: ({ children }: { children: React.ReactNode }) => <h4 style={{ fontSize: '1.05rem', fontWeight: 600, lineHeight: 1.4, marginTop: '1.25rem', marginBottom: '0.4rem' }}>{children}</h4>,
+    h5: ({ children }: { children: React.ReactNode }) => <h5 style={{ fontSize: '0.95rem', fontWeight: 600, marginTop: '1rem', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'hsl(var(--muted-foreground))' }}>{children}</h5>,
+    h6: ({ children }: { children: React.ReactNode }) => <h6 style={{ fontSize: '0.875rem', fontWeight: 600, marginTop: '0.75rem', marginBottom: '0.3rem', color: 'hsl(var(--muted-foreground))' }}>{children}</h6>,
+    p: ({ children }: { children: React.ReactNode }) => <p style={{ marginTop: 0, marginBottom: '1rem' }}>{children}</p>,
+    a: ({ href, children }: { href?: string; children: React.ReactNode }) => <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'hsl(var(--primary))', textDecoration: 'underline', textUnderlineOffset: '3px' }}>{children}</a>,
+    code: ({ className: cls, children, ...props }: { className?: string; children: React.ReactNode }) => {
+      const isInline = !cls;
+      return isInline
+        ? <code style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.85em', background: 'hsl(var(--muted))', padding: '0.15em 0.4em', borderRadius: '4px', border: '1px solid hsl(var(--border))' }} {...props}>{children}</code>
+        : <code className={cls} {...props}>{children}</code>;
+    },
+    pre: ({ children }: { children: React.ReactNode }) => <pre style={{ background: '#0d1117', border: '1px solid hsl(var(--border))', borderRadius: '8px', padding: '1rem 1.25rem', overflowX: 'auto', margin: '1rem 0', fontFamily: 'ui-monospace, monospace', fontSize: '13px', lineHeight: 1.65, color: '#e6edf3' }}>{children}</pre>,
+    ul: ({ children }: { children: React.ReactNode }) => <ul style={{ listStyleType: 'disc', paddingLeft: '1.5rem', marginTop: 0, marginBottom: '1rem' }}>{children}</ul>,
+    ol: ({ children }: { children: React.ReactNode }) => <ol style={{ listStyleType: 'decimal', paddingLeft: '1.5rem', marginTop: 0, marginBottom: '1rem' }}>{children}</ol>,
+    li: ({ children }: { children: React.ReactNode }) => <li style={{ marginBottom: '0.35rem' }}>{children}</li>,
+    blockquote: ({ children }: { children: React.ReactNode }) => <blockquote style={{ borderLeft: '4px solid hsl(var(--primary) / 0.5)', paddingLeft: '1.25rem', paddingTop: '0.5rem', paddingBottom: '0.5rem', margin: '1rem 0', background: 'hsl(var(--muted) / 0.5)', borderRadius: '0 6px 6px 0', color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>{children}</blockquote>,
+    hr: () => <hr style={{ border: 'none', borderTop: '1px solid hsl(var(--border))', margin: '2rem 0' }} />,
+    table: ({ children }: { children: React.ReactNode }) => <div style={{ overflowX: 'auto', margin: '1rem 0', borderRadius: '8px', border: '1px solid hsl(var(--border))' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>{children}</table></div>,
+    th: ({ children }: { children: React.ReactNode }) => <th style={{ background: 'hsl(var(--muted))', padding: '0.6rem 1rem', textAlign: 'left', fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'hsl(var(--muted-foreground))', borderBottom: '2px solid hsl(var(--border))' }}>{children}</th>,
+    td: ({ children }: { children: React.ReactNode }) => <td style={{ padding: '0.6rem 1rem', borderBottom: '1px solid hsl(var(--border) / 0.6)' }}>{children}</td>,
+    strong: ({ children }: { children: React.ReactNode }) => <strong style={{ fontWeight: 700 }}>{children}</strong>,
+    em: ({ children }: { children: React.ReactNode }) => <em style={{ fontStyle: 'italic' }}>{children}</em>,
+  }), []);
+
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -367,48 +425,83 @@ const RepositoryPage: React.FC = () => {
                         )}
                       </div>
 
-                      {/* README */}
-                      {readmeContent && !loadingFiles && (
-                        <div className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm mb-8">
-                          <div className="bg-muted/40 px-4 py-3 border-b border-border/60 flex items-center gap-2 font-semibold">
-                            <BookOpen className="h-4 w-4" />
-                            README.md
-                            <button
-                              id="copy-readme-url-btn"
-                              onClick={handleCopyUrl}
-                              className={`ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all ${copied
-                                ? 'text-green-400 bg-green-400/10 border border-green-400/20'
-                                : 'text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted border border-border/40'
-                                }`}
-                            >
-                              {copied ? <><CheckCircle2 className="h-3.5 w-3.5" /> Copied!</> : <><Copy className="h-3.5 w-3.5" /> Copy URL</>}
-                            </button>
-                          </div>
-                          <div className="p-4 sm:p-6 md:p-8 min-w-0 max-w-full overflow-hidden">
-                            <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none break-words min-w-0">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                  pre: ({ node, ...props }) => (
-                                    <div className="overflow-x-auto max-w-full my-3 rounded-lg border border-border/50 bg-[#0d1117] dark:bg-black/40 p-3 sm:p-4">
-                                      <pre {...props} className="text-xs sm:text-sm font-mono whitespace-pre text-[#e6edf3]" />
-                                    </div>
-                                  ),
-                                  table: ({ node, ...props }) => (
-                                    <div className="overflow-x-auto max-w-full my-3">
-                                      <table {...props} className="w-full text-left border-collapse text-sm" />
-                                    </div>
-                                  ),
-                                }}
-                              >
-                                {readmeContent}
-                              </ReactMarkdown>
-                            </div>
-                          </div>
+                      {/* All .md files — README expanded by default, others collapsed */}
+                      {!loadingFiles && mdFiles.length > 0 && (
+                        <div className="flex flex-col gap-3 mb-8">
+                          {mdFiles.map((mdFile) => {
+                            const isReadme = mdFile.path.toLowerCase() === 'readme.md';
+                            const expanded = isExpanded(mdFile.path);
+                            const filename = mdFile.path.split('/').pop() ?? mdFile.path;
+                            return (
+                              <div key={mdFile.path} className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm">
+                                {/* Header / Toggle */}
+                                <button
+                                  onClick={() => toggleMdFile(mdFile.path)}
+                                  className="w-full bg-muted/40 px-4 py-3 flex items-center gap-2 hover:bg-muted/60 transition-colors text-left"
+                                  style={{ borderBottom: expanded ? '1px solid hsl(var(--border) / 0.6)' : 'none' }}
+                                >
+                                  <ChevronDown
+                                    className="h-4 w-4 text-muted-foreground flex-shrink-0"
+                                    style={{ transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 280ms cubic-bezier(0.4,0,0.2,1)' }}
+                                  />
+                                  {isReadme
+                                    ? <BookOpen className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                                    : <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                  }
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="font-semibold text-sm">{filename}</span>
+                                    {mdFile.path !== filename && (
+                                      <span className="text-[11px] text-muted-foreground font-mono truncate">{mdFile.path}</span>
+                                    )}
+                                  </div>
+                                  {isReadme && (
+                                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-400/10 border border-blue-400/20 px-1.5 py-0.5 rounded">Main</span>
+                                  )}
+                                  {isReadme && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleCopyUrl(); }}
+                                      className={`ml-auto flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all ${copied
+                                        ? 'text-green-400 bg-green-400/10 border border-green-400/20'
+                                        : 'text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted border border-border/40'
+                                      }`}
+                                    >
+                                      {copied ? <><CheckCircle2 className="h-3.5 w-3.5" /> Copied!</> : <><Copy className="h-3.5 w-3.5" /> Copy URL</>}
+                                    </button>
+                                  )}
+                                </button>
+
+                                {/* Content — CSS Grid trick for smooth height animation */}
+                                <div
+                                  style={{
+                                    display: 'grid',
+                                    gridTemplateRows: expanded ? '1fr' : '0fr',
+                                    transition: 'grid-template-rows 300ms cubic-bezier(0.4,0,0.2,1)',
+                                  }}
+                                >
+                                  <div style={{ overflow: 'hidden' }}>
+                                    {isMounted(mdFile.path) ? (
+                                      <div className="p-4 sm:p-6 md:p-8 min-w-0 max-w-full">
+                                        <div style={{ fontSize: '15px', lineHeight: '1.75' }}>
+                                          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents as never}>
+                                            {mdFile.content}
+                                          </ReactMarkdown>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground text-sm">
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        กำลังโหลด...
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
 
-                      {!loadingFiles && files.length > 0 && !readmeContent && (
+                      {!loadingFiles && files.length > 0 && mdFiles.length === 0 && (
                         <div className="rounded-xl border border-border/60 bg-card overflow-hidden shadow-sm mb-8">
                           <div className="bg-muted/40 px-4 py-3 border-b border-border/60 flex items-center gap-2 font-semibold">
                             <BookOpen className="h-4 w-4" /> README.md
